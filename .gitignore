@@ -1,0 +1,11 @@
+# Android build artifacts & secrets
+android-project/build/
+android-project/gen/
+android-project/obj/
+android-project/release.keystore
+android-project/.keystore.env
+*.idsig
+*.zip
+*.log
+node_modules/
+

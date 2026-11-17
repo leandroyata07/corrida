@@ -1,0 +1,17 @@
+{
+  "name": "LH44 — Low to High Speed",
+  "short_name": "LH44",
+  "description": "Jogo arcade de corrida retrô 2.5D com 20 carros brasileiros e 31 pistas.",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#040810",
+  "theme_color": "#040810",
+  "icons": [
+    {
+      "src": "android-project/res/drawable/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
