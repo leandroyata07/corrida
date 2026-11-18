@@ -236,6 +236,46 @@
         };
         attachSafeTap(fpsBtn, toggleFps);
       }
+
+      // Seletor de Qualidade Gráfica / Resolução Interna (LEVE / PADRÃO / ULTRA)
+      this.renderQuality = 'NORMAL';
+      try {
+        const savedQuality = localStorage.getItem('lh44_render_quality');
+        if (savedQuality === 'LOW' || savedQuality === 'NORMAL' || savedQuality === 'HIGH') {
+          this.renderQuality = savedQuality;
+        }
+      } catch (_) {}
+      const applyRenderQuality = () => {
+        if (this.renderQuality === 'LOW') RENDER_SCALE = 1.3;
+        else if (this.renderQuality === 'HIGH') RENDER_SCALE = 3.0;
+        else RENDER_SCALE = IS_MOBILE_CLIENT ? 1.8 : 2.5;
+        this.syncCanvasResolution();
+      };
+      applyRenderQuality();
+
+      const qualityBtn = document.getElementById('quality-btn');
+      if (qualityBtn) {
+        const updateQualityBtn = () => {
+          const labels = { LOW: 'QUALIDADE: LEVE (1.3x)', NORMAL: 'QUALIDADE: PADRÃO', HIGH: 'QUALIDADE: ULTRA (3.0x)' };
+          const colors = { LOW: '#FFD700', NORMAL: '#00E5FF', HIGH: '#69F0AE' };
+          const borders = { LOW: '#F59E0B', NORMAL: '#00B4D8', HIGH: '#00E676' };
+          qualityBtn.textContent = labels[this.renderQuality] || labels.NORMAL;
+          qualityBtn.style.color = colors[this.renderQuality] || colors.NORMAL;
+          qualityBtn.style.borderColor = borders[this.renderQuality] || borders.NORMAL;
+        };
+        updateQualityBtn();
+        const toggleQuality = (e) => {
+          if (e && e.stopPropagation) e.stopPropagation();
+          const order = ['NORMAL', 'HIGH', 'LOW'];
+          const nextIdx = (order.indexOf(this.renderQuality) + 1) % order.length;
+          this.renderQuality = order[nextIdx];
+          try { localStorage.setItem('lh44_render_quality', this.renderQuality); } catch (_) {}
+          applyRenderQuality();
+          updateQualityBtn();
+          qualityBtn.blur();
+        };
+        attachSafeTap(qualityBtn, toggleQuality);
+      }
       this.fixedStep = 1 / 60;
       this.accumulator = 0;
       this.initSeasonRoster();
@@ -2611,7 +2651,13 @@
         p.speed = Math.max(25, p.speed - gravityResistance);
       }
 
+      const prevGear = p.currentGear;
       p.updateTransmission();
+      if (this.state === 'RACING' && p.currentGear > prevGear && isAccelerating && p.speed > 55) {
+        if (this.audio && typeof this.audio.playBeep === 'function') {
+          this.audio.playBeep(95 + p.currentGear * 18, 0.035);
+        }
+      }
       if (isPowerBraking && p.speed > 35) {
         // Mantém o motor na faixa alta de giro e potência durante a tangência da curva
         p.rpm = Math.max(p.rpm, 5200);
@@ -2897,10 +2943,11 @@
 
         const botSeg = this.findSegment(bot.z);
         const botSlope = (botSeg.p2.world.y - botSeg.p1.world.y) / SEGMENT_LENGTH;
-        let baseTargetSpeed = this.getEffectiveMaxSpeed(bot) * bot.aiSkill * 0.96;
-        if (Math.abs(botSeg.curve) > 2.0) baseTargetSpeed *= 0.86;
+        // IA +30% mais competitiva: ritmo alto em reta e melhor velocidade de contorno em curvas
+        let baseTargetSpeed = this.getEffectiveMaxSpeed(bot) * Math.min(1.12, bot.aiSkill * 1.05);
+        if (Math.abs(botSeg.curve) > 2.0) baseTargetSpeed *= 0.94;
         // Gravidade para os rivais também (embalam na descida e pesam na subida)
-        baseTargetSpeed += Math.max(-45, -botSlope * 210);
+        baseTargetSpeed += Math.max(-35, -botSlope * 210);
 
         // Vácuo para os Bots: detecta carros à frente (jogador ou outros bots)
         bot.inSlipstream = false;
@@ -2972,62 +3019,62 @@
           targetSpeed = (this.getEffectiveMaxSpeed(bot) * 1.30) + botDownhillBonus;
         }
 
-        // Inteligência de Uso dos 3 Nitros pelos Bots
-        if (this.state === 'RACING' && this.raceTimer > 2.5 && bot.nitroCharges > 0 && bot.nitroTimer <= 0 && bot.nitroCooldown <= 0) {
-          const isStraight = Math.abs(botSeg.curve) < 1.0;
-          // Caso 1: Vácuo próximo querendo ultrapassar na reta (slingshot)
-          const shouldDraftPass = leadCar && leadDist < 240 && isStraight && (bot.speed > 130);
+        // Inteligência de Uso dos 3 Nitros pelos Bots (mais estratégica e agressiva)
+        if (this.state === 'RACING' && this.raceTimer > 1.8 && bot.nitroCharges > 0 && bot.nitroTimer <= 0 && bot.nitroCooldown <= 0) {
+          const isStraight = Math.abs(botSeg.curve) < 1.1;
+          // Caso 1: Vácuo próximo querendo ultrapassar na reta (slingshot + nitro)
+          const shouldDraftPass = leadCar && leadDist < 340 && isStraight && (bot.speed > 115);
           // Caso 2: Saída de curva para reta acelerando forte
-          const shouldExitLaunch = isStraight && bot.speed < this.getEffectiveMaxSpeed(bot) * 0.82 && Math.random() < 0.04;
-          // Caso 3: Disputa acirrada com o jogador (defendendo ou atacando na 2ª e 3ª voltas)
-          const playerDist = Math.abs(this.shortestDeltaZ(this.player.z, bot.z));
-          const shouldFightPlayer = playerDist < 260 && (this.player.laps >= 1 || isStraight) && Math.random() < 0.06;
+          const shouldExitLaunch = isStraight && bot.speed < this.getEffectiveMaxSpeed(bot) * 0.88 && Math.random() < 0.12;
+          // Caso 3: Disputa acirrada com o jogador (defendendo posição ou atacando para ultrapassar)
+          const playerDz = this.shortestDeltaZ(this.player.z, bot.z);
+          const shouldFightPlayer = Math.abs(playerDz) < 320 && (isStraight || playerDz < 0) && Math.random() < 0.15;
 
           if (shouldDraftPass || shouldExitLaunch || shouldFightPlayer) {
             bot.nitroCharges--;
             bot.nitroTimer = 3.0;
-            bot.nitroCooldown = 7.0 + Math.random() * 8.0;
+            bot.nitroCooldown = 4.2 + Math.random() * 4.5;
             bot.isNitro = true;
           }
         }
 
-        // Traçado, Tangência e Estratégia de Vácuo/Estilingue dos Bots
-        if (this.raceTimer < 3.2) {
-          // Nos primeiros 3.2s após a largada, os bots mantêm estritamente a sua própria coluna do grid
-          // sem cruzar a pista e sem trocar de lado com os outros carros
+        // Traçado, Tangência, Defesa Ativa e Estratégia de Vácuo/Estilingue dos Bots
+        if (this.raceTimer < 2.6) {
+          // Nos primeiros 2.6s após a largada, os bots mantêm a coluna do grid sem cruzamentos bruscos
           bot.targetX = (bot.gridStartX !== undefined) ? bot.gridStartX : bot.x;
         } else {
           const pers = bot.aiPersonality || 'TECHNICAL';
           const pDistZ = this.shortestDeltaZ(this.player.z, bot.z);
-          const isPlayerNear = (Math.abs(pDistZ) < 180);
+          const isPlayerAttacking = (pDistZ < 0 && pDistZ > -260 && this.player.speed > bot.speed - 12);
 
-          if (pers === 'AGGRESSIVE' && isPlayerNear && pDistZ < 0) {
-            // Agressivo: defende posição e fecha a linha contra investidas de ultrapassagem do jogador
-            bot.targetX += (this.player.x - bot.targetX) * 2.2 * dt;
+          if (isPlayerAttacking && Math.abs(botSeg.curve) < 1.5) {
+            // Defesa ativa: fecha a linha de ultrapassagem do jogador com firmeza proporcional à personalidade
+            const defRate = (pers === 'AGGRESSIVE') ? 3.5 : ((pers === 'TECHNICAL') ? 2.6 : 1.9);
+            bot.targetX += (this.player.x - bot.targetX) * defRate * dt;
             bot.targetX = Math.max(-0.85, Math.min(0.85, bot.targetX));
           } else if (pers === 'TECHNICAL' && botSeg.curve !== 0) {
             // Técnico: tangência perfeita no apex e linha cirúrgica na curva
-            const apexX = Math.max(-0.75, Math.min(0.75, -botSeg.curve * 0.32));
-            bot.targetX += (apexX - bot.targetX) * 2.2 * dt;
-          } else if (pers === 'PRESSURE_PRONE' && isPlayerNear && pDistZ < 0 && Math.abs(this.player.x - bot.x) < 0.45) {
-            // Propenso a pressão: quando o jogador cola na traseira, o bot oscila / comete pequeno subesterço
-            bot.pressureTimer = Math.min(3.0, (bot.pressureTimer || 0) + dt * 1.5);
-            if (bot.pressureTimer > 0.7) {
-              bot.targetX += Math.sin(this.raceTimer * 10) * 0.18 * dt;
-              targetSpeed *= 0.95;
+            const apexX = Math.max(-0.78, Math.min(0.78, -botSeg.curve * 0.34));
+            bot.targetX += (apexX - bot.targetX) * 2.8 * dt;
+          } else if (pers === 'PRESSURE_PRONE' && Math.abs(pDistZ) < 160 && pDistZ < 0 && Math.abs(this.player.x - bot.x) < 0.42) {
+            // Propenso a pressão: oscila levemente sob pressão extrema, mas mantém ritmo forte
+            bot.pressureTimer = Math.min(2.5, (bot.pressureTimer || 0) + dt * 1.3);
+            if (bot.pressureTimer > 0.9) {
+              bot.targetX += Math.sin(this.raceTimer * 10) * 0.14 * dt;
+              targetSpeed *= 0.97;
             }
           } else {
             if (botSeg.curve !== 0) {
-              const apexX = Math.max(-0.68, Math.min(0.68, -botSeg.curve * 0.22));
-              bot.targetX += (apexX - bot.targetX) * 1.5 * dt;
-            } else if (bot.inSlipstream && leadCar && leadDist > 140) {
-              // Em vácuo a média distância: o bot alinha atrás do carro da frente para sugar velocidade!
-              bot.targetX += (leadCar.x - bot.targetX) * 2.6 * dt;
+              const apexX = Math.max(-0.72, Math.min(0.72, -botSeg.curve * 0.26));
+              bot.targetX += (apexX - bot.targetX) * 2.1 * dt;
+            } else if (bot.inSlipstream && leadCar && leadDist > 110) {
+              // Em vácuo: alinha com rapidez atrás do carro da frente para embalar e preparar slingshot
+              bot.targetX += (leadCar.x - bot.targetX) * 3.4 * dt;
             } else {
               bot.laneChangeTimer -= dt;
               if (bot.laneChangeTimer <= 0) {
-                bot.laneChangeTimer = 2.8 + Math.random() * 3.5;
-                bot.targetX = (Math.random() - 0.5) * 1.20;
+                bot.laneChangeTimer = 2.4 + Math.random() * 3.0;
+                bot.targetX = (Math.random() - 0.5) * 1.15;
               }
             }
           }
@@ -3064,9 +3111,9 @@
               // Aciona o benefício do slingshot para impulsionar a ultrapassagem
               bot.slipstreamDecayTimer = 1.2;
             }
-            // Se estiver muito próximo e sem espaço para passar, alivia o acelerador
-            if (distZ < 90 && bot.bumpBoostTimer <= 0 && !bot.isNitro) {
-              targetSpeed = Math.min(targetSpeed, other.speed * 0.92);
+            // Se estiver muito próximo na mesma linha sem espaço para passar, alivia o acelerador
+            if (distZ < 65 && latDiff < 0.30 && bot.bumpBoostTimer <= 0 && !bot.isNitro) {
+              targetSpeed = Math.min(targetSpeed, other.speed * 0.94);
             }
           }
         }
@@ -3083,8 +3130,8 @@
             const botTorque = Math.max(0.32, 1.28 - botAirDrag);
             const nitroAccel = bot.isNitro ? 1.75 : (bot.nitroDecayTimer > 0 ? (1.0 + 0.75 * (bot.nitroDecayTimer / 3.0)) : 1.0);
             const accelMul = nitroAccel + (1.10 * (bot.slipstreamIntensity || 0));
-            // Cadência de arrancada esportiva equilibrada para os bots (~6 a 8s para velocidade máxima)
-            const baseBotPower = bot.isNitro ? (65 + bot.model.acceleration * 55) : (24 + bot.model.acceleration * 26);
+            // Cadência de arrancada competitiva (+30% mais agressiva na retomada e no nitro)
+            const baseBotPower = bot.isNitro ? (82 + bot.model.acceleration * 68) : (31 + bot.model.acceleration * 34);
             const launchRate = baseBotPower * botTorque * accelMul * dt;
             const botSuctionPull = (32 + bot.model.acceleration * 38) * (bot.slipstreamIntensity || 0) * dt;
             bot.speed = Math.min(bot.speed + launchRate + botSuctionPull, targetSpeed);
@@ -3168,12 +3215,12 @@
         // Largura física de contato lateral calibrada (permite disputa de espaço justa e natural)
         const COLLISION_WIDTH = 0.365;
 
-        // Ignora carros fora do alcance visual e físico
-        if (dz <= -85 || dz >= 65 || absDx >= COLLISION_WIDTH) continue;
+        // Ignora carros fora do alcance visual e físico (cobrindo comprimento total + esquinas)
+        if (dz <= -105 || dz >= 95 || absDx >= COLLISION_WIDTH) continue;
 
         let didCollide = false;
 
-        if (dz <= -46) {
+        if (dz <= -66 && absDx < 0.27) {
           // ========================================================
           // 1. COLISÃO TRASEIRA (ESTILO TOP GEAR):
           // Jogador bateu na traseira do rival à frente!
@@ -3184,7 +3231,7 @@
 
           // Jogador perde velocidade significativa e é contido atrás do rival
           p.speed = Math.max(30, Math.min(p.speed - 36 - speedDiff * 0.45, bot.speed * 0.88));
-          p.z = this.wrapZ(bot.z - 48);
+          p.z = this.wrapZ(bot.z - 68);
 
           // Rival recebe um impulso direto para frente (estilo Top Gear)
           const forwardImpulse = 26 + Math.min(38, speedDiff * 0.50);
@@ -3198,43 +3245,48 @@
             p.bumpVelX = (dx >= 0 ? 0.85 : -0.85);
           }
           this.shake = 2.4;
-        } else if (dz >= 46) {
+        } else if (dz >= 66 && absDx < 0.27 && bot.speed > p.speed) {
           // ========================================================
           // 2. RIVAL BATEU NA TRASEIRA DO JOGADOR
           // ========================================================
-          if (bot.speed > p.speed) {
-            didCollide = true;
-            bot.speed = Math.max(30, p.speed * 0.84);
-            const pMaxVal = this.getEffectiveMaxSpeed(p);
-            const playerTopSpeed = (p.isNitro ? (pMaxVal * 1.30) : pMaxVal);
-            p.speed = Math.min(p.speed + 20, playerTopSpeed * 1.10);
-            bot.z = this.wrapZ(p.z - 48);
-            this.shake = 1.8;
-          }
+          didCollide = true;
+          bot.speed = Math.max(30, p.speed * 0.84);
+          const pMaxVal = this.getEffectiveMaxSpeed(p);
+          const playerTopSpeed = (p.isNitro ? (pMaxVal * 1.30) : pMaxVal);
+          p.speed = Math.min(p.speed + 20, playerTopSpeed * 1.10);
+          bot.z = this.wrapZ(p.z - 68);
+          this.shake = 1.8;
         } else {
           // ========================================================
-          // 3. CONTATO PORTA-A-PORTA LATERAL / DISPUTA DE ESPAÇO FIRME E MODERADA:
-          // NUNCA atravessa por dentro do outro carro! Separação física sólida imediata.
+          // 3. CONTATO LATERAL / ESQUINA (PORTA-A-PORTA E FECHADA NA ULTRAPASSAGEM):
+          // Emula o comprimento lateral do carro: mesmo meio carro à frente ou atrás,
+          // há raspagem lateral leve/firme proporcional ao overlap, sem atravessar.
           // ========================================================
           didCollide = true;
-          const overlap = Math.max(0.015, COLLISION_WIDTH - absDx);
+          const isGlancingCorner = (Math.abs(dz) >= 46);
+          const overlap = Math.max(0.012, COLLISION_WIDTH - absDx);
           const dirX = (dx >= 0) ? 1 : -1;
+          const sepFactor = isGlancingCorner ? 0.38 : 0.52;
 
-          // Separação física imediata e firme (garante que nunca passem um por dentro do outro)
-          p.x += dirX * overlap * 0.52;
-          bot.x -= dirX * overlap * 0.52;
+          // Separação física imediata (garante que nunca passem um por dentro do outro)
+          p.x += dirX * overlap * sepFactor;
+          bot.x -= dirX * overlap * sepFactor;
 
           // Sem problema sair da pista (pode ir até a grama e voltar naturalmente)
           p.x = Math.max(-1.95, Math.min(1.95, p.x));
           bot.x = Math.max(-1.95, Math.min(1.95, bot.x));
 
-          // Impulso lateral moderado e cadenciado (firme sem ser escandaloso)
-          p.bumpVelX = dirX * (0.60 + overlap * 0.70);
-          bot.bumpVelX = -dirX * (0.60 + overlap * 0.70);
+          // Impulso lateral: mais leve nas esquinas ao passar na frente/atrás, mais firme porta-a-porta
+          const impulseBase = isGlancingCorner ? 0.38 : 0.58;
+          const impulseSlope = isGlancingCorner ? 0.45 : 0.70;
+          p.bumpVelX = dirX * (impulseBase + overlap * impulseSlope);
+          bot.bumpVelX = -dirX * (impulseBase + overlap * impulseSlope);
+          bot.targetX = Math.max(-0.85, Math.min(0.85, bot.x - dirX * 0.25));
 
-          p.speed = Math.max(30, p.speed - 3.2);
-          bot.speed = Math.max(30, bot.speed - 3.2);
-          this.shake = 1.4;
+          const speedLoss = isGlancingCorner ? 1.8 : 3.2;
+          p.speed = Math.max(30, p.speed - speedLoss);
+          bot.speed = Math.max(30, bot.speed - speedLoss);
+          this.shake = isGlancingCorner ? 0.9 : 1.4;
         }
 
         if (didCollide) {

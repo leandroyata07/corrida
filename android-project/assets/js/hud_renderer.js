@@ -9,8 +9,10 @@
       const spd = this.player.speed;
       const maxSpd = this.getEffectiveMaxSpeed(this.player);
       const isNitro = this.player.isNitro;
+      const isSlingshot = !isNitro && (this.player.slipstreamDecayTimer > 0);
+      const isDraftCharged = !isNitro && this.player.inSlipstream && ((this.player.slipstreamIntensity || 0) >= 0.70);
       const isOverspeed = (spd > maxSpd + 2);
-      if (!isNitro && !isOverspeed && spd < maxSpd * 0.90) return;
+      if (!isNitro && !isSlingshot && !isDraftCharged && !isOverspeed && spd < maxSpd * 0.90) return;
 
       const pos = this.playerRenderPos || { x: INTERNAL_WIDTH / 2, y: INTERNAL_HEIGHT - 32 };
       const cx = pos.x;
@@ -19,11 +21,32 @@
       const h = PLAYER_CAR_H;
 
       const overFactor = Math.min(1.0, isOverspeed ? ((spd - maxSpd) / 45) : ((spd - maxSpd * 0.90) / (maxSpd * 0.10)));
-      const baseAlpha = isNitro ? 0.70 : (isOverspeed ? (0.35 + overFactor * 0.35) : 0.22);
-      const strokeStyleBase = isNitro ? '0, 230, 255' : '255, 255, 255';
+      const baseAlpha = isNitro ? 0.72 : (isSlingshot ? 0.65 : (isDraftCharged ? 0.48 : (isOverspeed ? (0.35 + overFactor * 0.35) : 0.22)));
+      const strokeStyleBase = isNitro ? '0, 230, 255' : (isSlingshot ? '255, 215, 0' : (isDraftCharged ? '0, 255, 136' : '255, 255, 255'));
       const steerOffset = (this.player.steerAngle || 0) * 16;
       const t = performance.now() / 1000;
       const flowSpeed = Math.max(3.0, (spd / 100) * 4.6);
+
+      // Brilho energético nas bordas laterais da tela durante Slingshot (vácuo carregado 100%)
+      if ((isSlingshot || isDraftCharged) && this.state === 'RACING') {
+        const edgeAlpha = isSlingshot
+          ? (0.20 + 0.10 * Math.sin(t * 18)) * Math.min(1, this.player.slipstreamDecayTimer / 0.5)
+          : 0.11;
+        const edgeCol = isSlingshot ? `rgba(255, 215, 0, ${edgeAlpha.toFixed(3)})` : `rgba(0, 229, 255, ${edgeAlpha.toFixed(3)})`;
+        ctx.save();
+        const leftG = ctx.createLinearGradient(0, 0, 22, 0);
+        leftG.addColorStop(0, edgeCol);
+        leftG.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = leftG;
+        ctx.fillRect(0, 0, 22, INTERNAL_HEIGHT);
+
+        const rightG = ctx.createLinearGradient(INTERNAL_WIDTH, 0, INTERNAL_WIDTH - 22, 0);
+        rightG.addColorStop(0, edgeCol);
+        rightG.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = rightG;
+        ctx.fillRect(INTERNAL_WIDTH - 22, 0, 22, INTERNAL_HEIGHT);
+        ctx.restore();
+      }
 
       // Chamas pulsantes de Nitro saindo dos escapamentos
       if (isNitro && (this.state === 'RACING')) {
@@ -804,7 +827,7 @@
           const pillW = 68;
           const pillH = 13;
           const pillX = Math.round((INTERNAL_WIDTH - pillW) / 2);
-          const pillY = topY + 2;
+          const pillY = topY + 20; // Abaixo dos botões de Pause e Configurações para nunca sobrepor
 
           ctx.fillStyle = 'rgba(8, 12, 22, 0.80)';
           ctx.fillRect(pillX, pillY, pillW, pillH);
