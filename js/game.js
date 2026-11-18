@@ -2943,11 +2943,11 @@
 
         const botSeg = this.findSegment(bot.z);
         const botSlope = (botSeg.p2.world.y - botSeg.p1.world.y) / SEGMENT_LENGTH;
-        // IA +30% mais competitiva: ritmo alto em reta e melhor velocidade de contorno em curvas
-        let baseTargetSpeed = this.getEffectiveMaxSpeed(bot) * Math.min(1.12, bot.aiSkill * 1.05);
-        if (Math.abs(botSeg.curve) > 2.0) baseTargetSpeed *= 0.94;
+        // Velocidade alvo original dos bots (sem alteração de velocidade máxima)
+        let baseTargetSpeed = this.getEffectiveMaxSpeed(bot) * bot.aiSkill * 0.96;
+        if (Math.abs(botSeg.curve) > 2.0) baseTargetSpeed *= 0.86;
         // Gravidade para os rivais também (embalam na descida e pesam na subida)
-        baseTargetSpeed += Math.max(-35, -botSlope * 210);
+        baseTargetSpeed += Math.max(-45, -botSlope * 210);
 
         // Vácuo para os Bots: detecta carros à frente (jogador ou outros bots)
         bot.inSlipstream = false;
@@ -3130,8 +3130,8 @@
             const botTorque = Math.max(0.32, 1.28 - botAirDrag);
             const nitroAccel = bot.isNitro ? 1.75 : (bot.nitroDecayTimer > 0 ? (1.0 + 0.75 * (bot.nitroDecayTimer / 3.0)) : 1.0);
             const accelMul = nitroAccel + (1.10 * (bot.slipstreamIntensity || 0));
-            // Cadência de arrancada competitiva (+30% mais agressiva na retomada e no nitro)
-            const baseBotPower = bot.isNitro ? (82 + bot.model.acceleration * 68) : (31 + bot.model.acceleration * 34);
+            // Cadência de arrancada esportiva equilibrada para os bots (~6 a 8s para velocidade máxima)
+            const baseBotPower = bot.isNitro ? (65 + bot.model.acceleration * 55) : (24 + bot.model.acceleration * 26);
             const launchRate = baseBotPower * botTorque * accelMul * dt;
             const botSuctionPull = (32 + bot.model.acceleration * 38) * (bot.slipstreamIntensity || 0) * dt;
             bot.speed = Math.min(bot.speed + launchRate + botSuctionPull, targetSpeed);
