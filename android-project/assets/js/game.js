@@ -1856,7 +1856,10 @@
         }
 
         if (this.input.justPressedUp) {
-          if (this.setupGroup === 1) {
+          if (this.setupGroup === 2) {
+            this.setupGroup = 1;
+            this.audio.playBeep(380, 0.04);
+          } else if (this.setupGroup === 1) {
             if (this.songIndex >= 2) {
               this.songIndex -= 2;
               this.audio.stopTitleMusic();
@@ -1902,6 +1905,11 @@
                 this.audio.setSong(this.songIndex);
               }
               this.audio.playBeep(330, 0.05);
+            } else {
+              this.setupGroup = 2;
+              if (this.setupActionIdx === undefined) this.setupActionIdx = 2;
+              if (!L.qualyBtn && this.setupActionIdx === 1) this.setupActionIdx = 2;
+              this.audio.playBeep(380, 0.04);
             }
           }
         }
@@ -1911,13 +1919,18 @@
             const nextIdx = (curIdx - 1 + ENV_CONDITIONS.length) % ENV_CONDITIONS.length;
             this.setEnvCond(ENV_CONDITIONS[nextIdx].id);
             this.audio.playBeep(330, 0.05);
-          } else {
+          } else if (this.setupGroup === 1) {
             this.songIndex = (this.songIndex - 1 + SONGS.length) % SONGS.length;
             this.audio.stopTitleMusic();
             this.audio.musicPlaying = true;
             if (this.audio && typeof this.audio.setSong === 'function') {
               this.audio.setSong(this.songIndex);
             }
+            this.audio.playBeep(330, 0.05);
+          } else {
+            const opts = L.qualyBtn ? [0, 1, 2] : [0, 2];
+            const pos = Math.max(0, opts.indexOf(this.setupActionIdx !== undefined ? this.setupActionIdx : 2));
+            this.setupActionIdx = opts[(pos - 1 + opts.length) % opts.length];
             this.audio.playBeep(330, 0.05);
           }
         }
@@ -1927,13 +1940,18 @@
             const nextIdx = (curIdx + 1) % ENV_CONDITIONS.length;
             this.setEnvCond(ENV_CONDITIONS[nextIdx].id);
             this.audio.playBeep(330, 0.05);
-          } else {
+          } else if (this.setupGroup === 1) {
             this.songIndex = (this.songIndex + 1) % SONGS.length;
             this.audio.stopTitleMusic();
             this.audio.musicPlaying = true;
             if (this.audio && typeof this.audio.setSong === 'function') {
               this.audio.setSong(this.songIndex);
             }
+            this.audio.playBeep(330, 0.05);
+          } else {
+            const opts = L.qualyBtn ? [0, 1, 2] : [0, 2];
+            const pos = Math.max(0, opts.indexOf(this.setupActionIdx !== undefined ? this.setupActionIdx : 2));
+            this.setupActionIdx = opts[(pos + 1) % opts.length];
             this.audio.playBeep(330, 0.05);
           }
         }
@@ -1946,7 +1964,36 @@
             this.input.clearPulses();
             return;
           }
-          // 2º Enter/Botão A (na Trilha Sonora): inicia a corrida
+          if (this.setupGroup === 1) {
+            // 2º Enter/Botão A: confirma a música e passa o foco para os botões (VOLTAR / QUALY / CONFIRMAR)
+            this.setupGroup = 2;
+            if (this.setupActionIdx === undefined) this.setupActionIdx = L.qualyBtn ? 1 : 2;
+            if (!L.qualyBtn && this.setupActionIdx === 1) this.setupActionIdx = 2;
+            this.audio.playBeep(440, 0.08);
+            this.input.clearPulses();
+            return;
+          }
+          // 3º Enter/Botão A (nos botões de ação): executa o botão focado
+          const act = (this.setupActionIdx !== undefined) ? this.setupActionIdx : 2;
+          if (act === 0) {
+            this.audio.playBeep(330, 0.06);
+            this.state = 'NAME_INPUT';
+            if (this.nameWrapper) this.nameWrapper.classList.add('show');
+            if (this.nameInput) {
+              this.nameInput.value = this.playerName || 'JOGADOR';
+              setTimeout(() => { try { this.nameInput.focus(); } catch (_) {} }, 40);
+            }
+            this.audio.musicPlaying = false;
+            this.audio.playTitleMusic();
+            this.input.clearPulses();
+            return;
+          }
+          if (act === 1 && L.qualyBtn) {
+            this.audio.playBeep(587, 0.14);
+            this.startQualySession();
+            this.input.clearPulses();
+            return;
+          }
           this.audio.playBeep(659, 0.18);
           this.startRaceCountdown();
           this.input.clearPulses();

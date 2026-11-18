@@ -64,7 +64,7 @@
         this.envKey = key;
       }
       if (this.envBlend < 1) {
-        this.envBlend = Math.min(1, this.envBlend + dt / 0.7);
+        this.envBlend = Math.min(1, this.envBlend + dt / 2.8);
         const k = this.envBlend * this.envBlend * (3 - 2 * this.envBlend);
         this.envCur = lerpEnv(this.envFrom, target, k);
       } else {

@@ -14,8 +14,8 @@ const ENV_CONDITIONS = [
   { id: 'NEVE_NOITE',  label: 'NEVE NOITE',  icon: '🌨' }
 ];
 const DYN_ORDER = ['DIA', 'TARDE', 'NOITE', 'CHUVA', 'CHUVA_NOITE', 'NEVE', 'NEVE_NOITE'];
-const DYN_HOLD = 20;   // segundos estáveis em cada condição
-const DYN_BLEND = 8;   // segundos de transição suave
+const DYN_HOLD = 18;   // segundos estáveis em cada condição
+const DYN_BLEND = 16;  // segundos de transição ultra-suave entre horários/climas
 
 const ENV_COLOR_KEYS = [
   'skyTop', 'skyMid', 'skyBottom', 'mountainColor', 'mountainFront',

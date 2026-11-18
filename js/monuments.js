@@ -1588,34 +1588,38 @@ const MonumentArt = {
         }
       }
 
-      // Janelas reativas
+      // Janelas visíveis em TODOS os horários (vidros reflexivos de dia, luzes ao entardecer e à noite)
       if (isNight) {
         for (let fy = y + 5; fy < horizonY - 4; fy += 7) {
           for (let fx = x + 3; fx < x + w - 3; fx += 5) {
-            // ~80% das janelas acesas com variação orgânica realista
             if ((fx * 7 + fy * 13) % 5 !== 0) {
               const tint = ((fx + fy) % 7 === 0) ? '#38BDF8' : (((fx + fy) % 3 === 0) ? '#FEF08A' : '#FDE047');
               ctx.fillStyle = tint;
+              ctx.fillRect(fx, fy, 2, 2.5);
+            } else {
+              ctx.fillStyle = 'rgba(30, 41, 59, 0.75)';
               ctx.fillRect(fx, fy, 2, 2.5);
             }
           }
         }
       } else if (isDusk) {
-        // Tarde: janelas começando a se acender em tom âmbar e dourado suave
+        // Tarde: vidros visíveis + janelas começando a acender em tom âmbar e dourado
         for (let fy = y + 5; fy < horizonY - 4; fy += 7) {
           for (let fx = x + 3; fx < x + w - 3; fx += 5) {
-            if ((fx * 7 + fy * 13) % 4 === 0) {
-              ctx.fillStyle = '#FED7AA';
-              ctx.fillRect(fx, fy, 2, 2.5);
+            if ((fx * 7 + fy * 13) % 3 === 0) {
+              ctx.fillStyle = '#FDE68A';
+            } else {
+              ctx.fillStyle = 'rgba(148, 163, 184, 0.45)';
             }
+            ctx.fillRect(fx, fy, 2, 2.5);
           }
         }
       } else {
-        // Dia: vidros espelhados refletindo o céu
-        ctx.fillStyle = 'rgba(224, 242, 254, 0.35)';
-        for (let fy = y + 5; fy < horizonY - 4; fy += 8) {
-          for (let fx = x + 3; fx < x + w - 3; fx += 6) {
-            ctx.fillRect(fx, fy, 2.5, 2.5);
+        // Dia: vidros azul-celeste bem visíveis refletindo o céu e a luz do sol
+        for (let fy = y + 5; fy < horizonY - 4; fy += 7) {
+          for (let fx = x + 3; fx < x + w - 3; fx += 5) {
+            ctx.fillStyle = ((fx + fy) % 4 === 0) ? 'rgba(186, 230, 253, 0.85)' : 'rgba(125, 211, 252, 0.65)';
+            ctx.fillRect(fx, fy, 2.2, 2.6);
           }
         }
       }

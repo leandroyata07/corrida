@@ -1437,15 +1437,17 @@
 
       // Botões ◀ VOLTAR, ⏱ QUALY e ▶ INICIAR CORRIDA
       const blink = Math.floor(now / 350) % 2 === 0;
+      const activeAct = (this.setupGroup === 2) ? (this.setupActionIdx !== undefined ? this.setupActionIdx : 2) : -1;
       const btnB = L.btnBack;
       if (btnB) {
+        const isFoc = (activeAct === 0);
         const backGrad = ctx.createLinearGradient(btnB.x, btnB.y, btnB.x, btnB.y + btnB.h);
-        backGrad.addColorStop(0, '#2C3E50');
-        backGrad.addColorStop(1, '#1A252F');
+        backGrad.addColorStop(0, isFoc ? '#475569' : '#2C3E50');
+        backGrad.addColorStop(1, isFoc ? '#334155' : '#1A252F');
         ctx.fillStyle = backGrad;
         ctx.fillRect(btnB.x, btnB.y, btnB.w, btnB.h);
-        ctx.strokeStyle = '#E74C3C';
-        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = isFoc ? '#FFFFFF' : '#E74C3C';
+        ctx.lineWidth = isFoc ? 2.0 : 1.2;
         ctx.strokeRect(btnB.x, btnB.y, btnB.w, btnB.h);
         ctx.fillStyle = '#ECF0F1';
         ctx.font = touchSafe ? 'bold 7.2px monospace' : 'bold 8px monospace';
@@ -1454,13 +1456,14 @@
 
       const btnQ = L.qualyBtn;
       if (btnQ) {
+        const isFoc = (activeAct === 1);
         const qGrad = ctx.createLinearGradient(btnQ.x, btnQ.y, btnQ.x, btnQ.y + btnQ.h);
-        qGrad.addColorStop(0, '#F59E0B');
-        qGrad.addColorStop(1, '#B45309');
+        qGrad.addColorStop(0, isFoc ? '#FDE047' : '#F59E0B');
+        qGrad.addColorStop(1, isFoc ? '#D97706' : '#B45309');
         ctx.fillStyle = qGrad;
         ctx.fillRect(btnQ.x, btnQ.y, btnQ.w, btnQ.h);
-        ctx.strokeStyle = '#FDE047';
-        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = isFoc ? '#FFFFFF' : '#FDE047';
+        ctx.lineWidth = isFoc ? 2.0 : 1.2;
         ctx.strokeRect(btnQ.x, btnQ.y, btnQ.w, btnQ.h);
         ctx.fillStyle = '#060D1A';
         ctx.font = touchSafe ? 'bold 6.8px monospace' : 'bold 7.6px monospace';
@@ -1469,13 +1472,14 @@
 
       const btnS = L.startBtn;
       if (btnS) {
+        const isFoc = (activeAct === 2);
         const btnGrad = ctx.createLinearGradient(btnS.x, btnS.y, btnS.x, btnS.y + btnS.h);
-        btnGrad.addColorStop(0, blink ? '#00E5FF' : '#00B0FF');
-        btnGrad.addColorStop(1, blink ? '#0091EA' : '#005F9E');
+        btnGrad.addColorStop(0, (isFoc || blink) ? '#00E5FF' : '#00B0FF');
+        btnGrad.addColorStop(1, (isFoc || blink) ? '#0091EA' : '#005F9E');
         ctx.fillStyle = btnGrad;
         ctx.fillRect(btnS.x, btnS.y, btnS.w, btnS.h);
-        ctx.strokeStyle = blink ? '#FFFFFF' : '#FFD700';
-        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = isFoc ? '#FFFFFF' : (blink ? '#FFFFFF' : '#FFD700');
+        ctx.lineWidth = isFoc ? 2.0 : 1.4;
         ctx.strokeRect(btnS.x, btnS.y, btnS.w, btnS.h);
         ctx.fillStyle = '#060D1A';
         ctx.font = touchSafe ? 'bold 8px monospace' : 'bold 9.5px monospace';
