@@ -30,11 +30,14 @@
         const row = Math.floor(i / 2);
         songs.push({ x: sStartX + col * (sw + sgx), y: y2 + row * (sh + sgy), w: sw, h: sh, i });
       }
-      const btnW = touchSafe ? 88 : 98;
-      const startW = touchSafe ? 116 : 130;
+      const showQualy = (this.gameMode !== 'TIME_TRIAL');
+      const btnW = touchSafe ? (showQualy ? 72 : 88) : (showQualy ? 80 : 98);
+      const qualyW = showQualy ? (touchSafe ? 88 : 102) : 0;
+      const startW = touchSafe ? (showQualy ? 96 : 116) : (showQualy ? 108 : 130);
       const btnH = touchSafe ? 15 : 16;
       const btnY = touchSafe ? 138 : 144;
-      const totalBtnsW = btnW + 12 + startW;
+      const gapB = 8;
+      const totalBtnsW = showQualy ? (btnW + gapB + qualyW + gapB + startW) : (btnW + 12 + startW);
       const btnStartX = Math.round(INTERNAL_WIDTH / 2 - totalBtnsW / 2);
       const btnBack = {
         x: btnStartX,
@@ -42,14 +45,26 @@
         w: btnW,
         h: btnH
       };
+      const qualyBtn = showQualy ? {
+        x: btnStartX + btnW + gapB,
+        y: btnY,
+        w: qualyW,
+        h: btnH
+      } : null;
       const startBtn = {
-        x: btnStartX + btnW + 12,
+        x: showQualy ? (btnStartX + btnW + gapB + qualyW + gapB) : (btnStartX + btnW + 12),
         y: btnY,
         w: startW,
         h: btnH
       };
+      const mirrorBtn = (this.gameMode !== 'CHAMPIONSHIP') ? {
+        x: Math.round(INTERNAL_WIDTH / 2 + (touchSafe ? 78 : 92)),
+        y: (touchSafe ? 21 : 22) - 7,
+        w: touchSafe ? 62 : 70,
+        h: 10
+      } : null;
       return {
-        touchSafe, conds, songs, btnBack, startBtn,
+        touchSafe, conds, songs, btnBack, qualyBtn, startBtn, mirrorBtn,
         titleY: touchSafe ? 13 : 14,
         subY: touchSafe ? 21 : 22,
         label1Y: touchSafe ? 28 : 29,
@@ -423,6 +438,17 @@
       ctx.fillText(creditsText, cx + 0.5, creditsY + 0.5);
       ctx.fillStyle = '#FFD54F';
       ctx.fillText(creditsText, cx, creditsY);
+
+      // Resumo discreto de carreira e conquistas (se já houver corridas registradas)
+      if (typeof CareerStats !== 'undefined') {
+        const st = CareerStats.get();
+        if (st.races > 0) {
+          ctx.font = 'bold 5.5px monospace';
+          ctx.fillStyle = '#94A3B8';
+          const achTxt = `${st.achievements.length}/${ACHIEVEMENTS_LIST.length}`;
+          ctx.fillText(`🏆 VITÓRIAS: ${st.wins}  |  PÓDIOS: ${st.podiums}  |  ${st.totalKm} KM  |  TROFÉUS: ${achTxt}`, cx, creditsY - 10);
+        }
+      }
 
       ctx.restore();
     }
@@ -1305,7 +1331,20 @@
 
       ctx.fillStyle = '#FFD700';
       ctx.font = touchSafe ? 'bold 6px monospace' : 'bold 7px monospace';
-      ctx.fillText(`CIRCUITO: ${def.name.toUpperCase()} (3 VOLTAS)`, INTERNAL_WIDTH / 2, L.subY);
+      const mirrorTag = (this.gameMode !== 'CHAMPIONSHIP' && this.mirrorTrack) ? ' [ESPELHO]' : '';
+      ctx.fillText(`CIRCUITO: ${def.name.toUpperCase()}${mirrorTag} (3 VOLTAS)`, INTERNAL_WIDTH / 2 - (L.mirrorBtn ? 22 : 0), L.subY);
+
+      if (L.mirrorBtn) {
+        const mb = L.mirrorBtn;
+        ctx.fillStyle = this.mirrorTrack ? '#7C3AED' : 'rgba(16, 24, 38, 0.92)';
+        ctx.fillRect(mb.x, mb.y, mb.w, mb.h);
+        ctx.strokeStyle = this.mirrorTrack ? '#DDD6FE' : '#00E5FF';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(mb.x, mb.y, mb.w, mb.h);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 5.4px monospace';
+        ctx.fillText(this.mirrorTrack ? '⇄ ESPELHO' : '⇄ NORMAL', mb.x + mb.w / 2, mb.y + mb.h / 2 + 2);
+      }
 
       // Grupo 1: horario / clima
       ctx.font = touchSafe ? 'bold 7px monospace' : 'bold 8px monospace';
@@ -1357,8 +1396,23 @@
       const curSong = SONGS[curSongIdx] || SONGS[0];
       ctx.fillText(curSong.desc || '', INTERNAL_WIDTH / 2, L.descY);
 
-      // Banner Informativo do Grid de Largada
-      if (this.gameMode === 'CHAMPIONSHIP' && this.seasonBots && this.seasonBots.length >= 19) {
+      // Banner Informativo do Grid de Largada (ou Resultado do Qualy!)
+      if (this.qualifiedGridPos > 0) {
+        const gW = L.gridW;
+        const gH = L.gridH;
+        const gX = Math.round(INTERNAL_WIDTH / 2 - gW / 2);
+        const gY = L.gridY;
+        ctx.fillStyle = 'rgba(0, 230, 118, 0.16)';
+        ctx.fillRect(gX, gY, gW, gH);
+        ctx.strokeStyle = '#00E676';
+        ctx.lineWidth = 0.9;
+        ctx.strokeRect(gX, gY, gW, gH);
+
+        ctx.fillStyle = '#69F0AE';
+        ctx.font = touchSafe ? 'bold 5.8px monospace' : 'bold 6.6px monospace';
+        const qStr = this.qualifiedLapTime > 0 ? ` (${this.formatTime(this.qualifiedLapTime)})` : '';
+        ctx.fillText(`⏱ QUALY CONCLUÍDO! VOCÊ LARGA EM P${this.qualifiedGridPos}${qStr}`, INTERNAL_WIDTH / 2, gY + gH / 2 + 2.0);
+      } else if (this.gameMode === 'CHAMPIONSHIP' && this.seasonBots && this.seasonBots.length >= 19) {
         const p19Idx = (this.seasonGridOrder && this.seasonGridOrder[18] !== undefined) ? this.seasonGridOrder[18] : 18;
         const p18Idx = (this.seasonGridOrder && this.seasonGridOrder[17] !== undefined) ? this.seasonGridOrder[17] : 17;
         const b19 = this.seasonBots[p19Idx] || this.seasonBots[18];
@@ -1381,7 +1435,7 @@
         ctx.fillText(`🏁 SEU GRID: P20 | AO SEU LADO (P19): ${m19} | À FRENTE (P18): ${m18}`, INTERNAL_WIDTH / 2, gY + gH / 2 + 2.0);
       }
 
-      // Botões ◀ VOLTAR e ▶ INICIAR CORRIDA
+      // Botões ◀ VOLTAR, ⏱ QUALY e ▶ INICIAR CORRIDA
       const blink = Math.floor(now / 350) % 2 === 0;
       const btnB = L.btnBack;
       if (btnB) {
@@ -1394,8 +1448,23 @@
         ctx.lineWidth = 1.2;
         ctx.strokeRect(btnB.x, btnB.y, btnB.w, btnB.h);
         ctx.fillStyle = '#ECF0F1';
-        ctx.font = touchSafe ? 'bold 8px monospace' : 'bold 9px monospace';
-        ctx.fillText('◀ VOLTAR [B]', btnB.x + btnB.w / 2, btnB.y + btnB.h / 2 + 3);
+        ctx.font = touchSafe ? 'bold 7.2px monospace' : 'bold 8px monospace';
+        ctx.fillText('◀ VOLTAR', btnB.x + btnB.w / 2, btnB.y + btnB.h / 2 + 2.8);
+      }
+
+      const btnQ = L.qualyBtn;
+      if (btnQ) {
+        const qGrad = ctx.createLinearGradient(btnQ.x, btnQ.y, btnQ.x, btnQ.y + btnQ.h);
+        qGrad.addColorStop(0, '#F59E0B');
+        qGrad.addColorStop(1, '#B45309');
+        ctx.fillStyle = qGrad;
+        ctx.fillRect(btnQ.x, btnQ.y, btnQ.w, btnQ.h);
+        ctx.strokeStyle = '#FDE047';
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(btnQ.x, btnQ.y, btnQ.w, btnQ.h);
+        ctx.fillStyle = '#060D1A';
+        ctx.font = touchSafe ? 'bold 6.8px monospace' : 'bold 7.6px monospace';
+        ctx.fillText(this.qualifiedGridPos > 0 ? '⏱ REFAZER QUALY' : '⏱ QUALY (1 VOLTA)', btnQ.x + btnQ.w / 2, btnQ.y + btnQ.h / 2 + 2.6);
       }
 
       const btnS = L.startBtn;
@@ -2072,6 +2141,13 @@
       } else {
         ctx.fillStyle = pPts > 0 ? '#69F0AE' : '#FFB74D';
         ctx.fillText(`SEU RESULTADO: ${pRank}º LUGAR (+${pPts} PTS)  |  TOTAL NO CAMPEONATO: ${pTotal} PTS`, INTERNAL_WIDTH / 2, 178);
+      }
+
+      if (this.newlyUnlockedAchievements && this.newlyUnlockedAchievements.length > 0) {
+        const achStr = this.newlyUnlockedAchievements.map(a => `${a.icon} ${a.title}`).join('  •  ');
+        ctx.fillStyle = '#FFD700';
+        ctx.font = 'bold 6.4px monospace';
+        ctx.fillText(`CONQUISTA DESBLOQUEADA: ${achStr}`, INTERNAL_WIDTH / 2, 187);
       }
 
       const blink = Math.floor(performance.now() / 400) % 2 === 0;

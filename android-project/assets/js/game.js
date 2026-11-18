@@ -311,6 +311,12 @@
       this.lapBannerTimer = 0;
       this.lapBannerText = '';
       this.f1LeaderboardToggled = false;
+      this.isQualifying = false;
+      this.qualifiedGridPos = 0;
+      this.qualifiedLapTime = 0;
+      this.mirrorTrack = false;
+      this.newlyUnlockedAchievements = [];
+      this.currentCameraDepth = CAMERA_DEPTH;
 
       this.syncCanvasResolution();
       CarArt.warmUp(CAR_MODELS);
@@ -751,7 +757,8 @@
     loadTrack(index) {
       this.trackIndex = index;
       const def = TRACK_DEFINITIONS[index];
-      this.track = TrackBuilder.build(def);
+      const useMirror = (this.gameMode !== 'CHAMPIONSHIP' && this.mirrorTrack);
+      this.track = TrackBuilder.build(def, useMirror);
       // Preserva a escolha do jogador (ex: DINÂMICO ou clima escolhido), usando o tema padrão da pista apenas se nada foi definido
       if (!this.chosenEnvCond) {
         this.chosenEnvCond = (def && def.theme) ? def.theme : 'DIA';
@@ -780,14 +787,21 @@
         botModels = remainingModels;
       }
 
-      // 19 Adversários da CPU com seus carros persistentes e únicos (Ordem fixa de Grid)
-      if (this.gameMode !== 'TIME_TRIAL') {
-        for (let slot = 1; slot <= 19; slot++) {
-          const botIdx = (this.gameMode === 'CHAMPIONSHIP' && this.seasonGridOrder && this.seasonGridOrder[slot - 1] !== undefined)
-            ? this.seasonGridOrder[slot - 1]
-            : (slot - 1);
-          const profile = this.seasonBots[botIdx] || this.seasonBots[slot - 1];
-          const botModel = (this.gameMode === 'CHAMPIONSHIP') ? profile.model : (botModels[slot - 1] || profile.model);
+      const playerSlot = (!this.isQualifying && this.gameMode !== 'TIME_TRIAL' && this.qualifiedGridPos >= 1 && this.qualifiedGridPos <= TOTAL_RACERS)
+        ? this.qualifiedGridPos
+        : TOTAL_RACERS;
+
+      // 19 Adversários da CPU com seus carros persistentes e únicos (ocupam os 19 slots restantes)
+      if (this.gameMode !== 'TIME_TRIAL' && !this.isQualifying) {
+        let botSlotIdx = 0;
+        for (let slot = 1; slot <= TOTAL_RACERS; slot++) {
+          if (slot === playerSlot) continue;
+          const bOrder = botSlotIdx++;
+          const botIdx = (this.gameMode === 'CHAMPIONSHIP' && this.seasonGridOrder && this.seasonGridOrder[bOrder] !== undefined)
+            ? this.seasonGridOrder[bOrder]
+            : bOrder;
+          const profile = this.seasonBots[botIdx] || this.seasonBots[bOrder];
+          const botModel = (this.gameMode === 'CHAMPIONSHIP') ? profile.model : (botModels[bOrder] || profile.model);
           const bot = new Car(botIdx + 1, botModel, false);
           bot.driverName = profile.driverName;
           bot.driverCode = profile.driverCode;
@@ -845,8 +859,12 @@
       this.player.accelMultiplier = 1.0 + engineBonusAccel;
       this.player.gripMultiplier = 1.0 + tireBonusGrip;
       this.player.nitroDurationBonus = turboBonusDuration;
-      this.player.z = 1600;
-      this.player.x = (this.gameMode === 'TIME_TRIAL') ? 0 : GRID_COL_X;
+      const pRowFromBack = Math.floor((TOTAL_RACERS - playerSlot) / 2);
+      const pIsLeft = (playerSlot % 2 === 1);
+      this.player.z = (this.gameMode === 'TIME_TRIAL' || this.isQualifying)
+        ? 1600
+        : (1600 + pRowFromBack * GRID_ROW_SPACING + (pIsLeft ? GRID_STAGGER_Z : 0));
+      this.player.x = (this.gameMode === 'TIME_TRIAL' || this.isQualifying) ? 0 : (pIsLeft ? -GRID_COL_X : GRID_COL_X);
       this.player.targetX = this.player.x;
       this.player.gridStartX = this.player.x;
       this.player.speed = 0;
@@ -929,7 +947,32 @@
       this.envKey = '';
     }
 
-    startRaceCountdown() {
+    startQualySession() {
+      this.isQualifying = true;
+      this.startRaceCountdown(true);
+    }
+
+    finishQualySession(lapTime) {
+      const avgPoleSpeed = (this.diffMode === 'ADVANCED') ? 274 : 268;
+      const poleTime = this.track.totalLength / (avgPoleSpeed * 20);
+      const p20Time = poleTime * 1.15;
+      const rank = Math.max(1, Math.min(TOTAL_RACERS, Math.round(1 + ((lapTime - poleTime) / Math.max(0.1, p20Time - poleTime)) * 19)));
+      this.qualifiedGridPos = rank;
+      this.qualifiedLapTime = lapTime;
+      this.isQualifying = false;
+      this.finishingRace = false;
+      this.finishTimer = 0;
+      this.finishFadeAlpha = 0;
+      this.audio.silenceEffects();
+      this.audio.musicPlaying = false;
+      this.audio.playTitleMusic();
+      this.audio.playBeep(880, 0.22);
+      this.setupCooldown = 0.35;
+      this.fadeTransition('RACE_SETUP');
+    }
+
+    startRaceCountdown(keepQualy = false) {
+      if (!keepQualy) this.isQualifying = false;
       this.setupRaceGrid();
       this.state = 'COUNTDOWN';
       this.countdown = 3.6;
@@ -1776,6 +1819,28 @@
             }
           }
 
+          // Botão Modo Espelho (apenas fora do Campeonato)
+          if (!clickedInteractive && L.mirrorBtn) {
+            const b = L.mirrorBtn;
+            if (click.x >= b.x && click.x <= b.x + b.w && click.y >= b.y && click.y <= b.y + b.h) {
+              this.mirrorTrack = !this.mirrorTrack;
+              this.loadTrack(this.trackIndex);
+              this.audio.playBeep(500, 0.07);
+              clickedInteractive = true;
+            }
+          }
+
+          // Botão Qualy (1 Volta Lançada)
+          if (!clickedInteractive && L.qualyBtn) {
+            const b = L.qualyBtn;
+            if (click.x >= b.x && click.x <= b.x + b.w && click.y >= b.y && click.y <= b.y + b.h) {
+              this.audio.playBeep(587, 0.14);
+              this.startQualySession();
+              this.input.clearPulses();
+              return;
+            }
+          }
+
           // Botão Confirmar / Iniciar Corrida
           if (!clickedInteractive && L.startBtn) {
             const b = L.startBtn;
@@ -2330,7 +2395,9 @@
             } while (nextSong === curSong);
           }
           this.songIndex = nextSong;
-          this.startRaceCountdown();
+          this.setupCooldown = 0.25;
+          this.setupGroup = 0;
+          this.fadeTransition('RACE_SETUP');
           this.input.clearPulses();
           return;
         }
@@ -2432,6 +2499,8 @@
       // --- CORRIDA EM ANDAMENTO ---
       this.updateSkyScroll(dt);
       this.updateEnv(dt);
+      const targetCamDepth = (this.player && this.player.isNitro && this.state === 'RACING') ? (CAMERA_DEPTH * 0.90) : CAMERA_DEPTH;
+      this.currentCameraDepth += (targetCamDepth - (this.currentCameraDepth || CAMERA_DEPTH)) * Math.min(1, dt * 6);
       if (this.greenLightsTimer > 0) this.greenLightsTimer -= dt;
       if (this.state === 'RACING') {
         this.raceTimer += dt;
@@ -2868,6 +2937,12 @@
 
         this.audio.playBeep(659, 0.25);
         this.lapBannerTimer = 2.0;
+
+        if (this.isQualifying && p.laps >= 1) {
+          this.finishQualySession(thisLap);
+          this.input.clearPulses();
+          return;
+        }
 
         if (p.laps >= TOTAL_LAPS) {
           this.registerCarFinish(p, dt, stepZ, lapTargetDist);
@@ -3506,6 +3581,12 @@
 
     finishRace() {
       this.state = 'RACE_RESULT';
+      this.isQualifying = false;
+      this.qualifiedGridPos = 0;
+      this.qualifiedLapTime = 0;
+      this.mirrorTrack = false;
+      this.newlyUnlockedAchievements = [];
+      this.currentCameraDepth = CAMERA_DEPTH;
       this.audio.silenceEffects();
       this.audio.musicPlaying = false;
       this.audio.playBeep(523, 0.2);
@@ -3524,6 +3605,20 @@
           const curTrack = TRACK_DEFINITIONS[this.trackIndex];
           if (curTrack && typeof TrackRecords !== 'undefined') {
             TrackRecords.update(curTrack.id, this.bestLapTime, pos + 1);
+          }
+          if (typeof CareerStats !== 'undefined') {
+            const isRain = !!(this.envCur && this.envCur.s && this.envCur.s.rain > 0.25);
+            const km = (this.track ? (this.track.totalLength / 1000) * TOTAL_LAPS : 0);
+            const isChampWin = (this.gameMode === 'CHAMPIONSHIP' && this.seasonStage >= (this.seasonSchedule.length - 1) && pos === 0);
+            const res = CareerStats.recordRace({
+              rank: pos + 1,
+              km,
+              isRain,
+              startPos: (this.qualifiedGridPos > 0 ? this.qualifiedGridPos : 20),
+              carId: car.model ? car.model.id : '',
+              isChampion: isChampWin
+            });
+            this.newlyUnlockedAchievements = res.newlyUnlocked || [];
           }
         }
         if (this.gameMode === 'CHAMPIONSHIP') {
@@ -3689,6 +3784,17 @@
 
           if (this.envCur && this.envCur.s.rain > 0.04) {
             this.renderWetReflection(ctx, playerScreenX, playerScreenY, PLAYER_CAR_W, PLAYER_CAR_H, this.player.isBraking, this.envCur.s.rain);
+          }
+
+          // Brilho vermelho das luzes de freio no asfalto (Noite/Tarde, mesmo em pista seca)
+          if (isDark && this.player.isBraking) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 23, 68, 0.26)';
+            ctx.beginPath();
+            ctx.ellipse(playerScreenX - PLAYER_CAR_W * 0.24, playerScreenY + PLAYER_CAR_H * 0.34, PLAYER_CAR_W * 0.22, 4.5, 0, 0, Math.PI * 2);
+            ctx.ellipse(playerScreenX + PLAYER_CAR_W * 0.24, playerScreenY + PLAYER_CAR_H * 0.34, PLAYER_CAR_W * 0.22, 4.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
           }
 
           this.player.model.render(

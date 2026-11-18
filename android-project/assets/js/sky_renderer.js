@@ -77,6 +77,24 @@
 
       // Silencia e desativa totalmente qualquer aviso de texto na tela durante a corrida
       this.envBanner = null;
+
+      // Relâmpagos e trovões dinâmicos em tempestades noturnas (CHUVA_NOITE)
+      const isStormNight = this.envCur && this.envCur.s && this.envCur.s.rain > 0.35 && this.envCur.s.night > 0.35;
+      if (isStormNight && (this.state === 'RACING' || this.state === 'COUNTDOWN')) {
+        if (this.lightningTimer === undefined) this.lightningTimer = 4 + Math.random() * 6;
+        this.lightningTimer -= dt;
+        if (this.lightningTimer <= 0) {
+          this.lightningTimer = 7 + Math.random() * 8;
+          this.lightningFlash = 1.0;
+          this.lightningX = 40 + Math.random() * (INTERNAL_WIDTH - 80);
+          if (this.audio && typeof this.audio.playThunder === 'function') {
+            setTimeout(() => { try { this.audio.playThunder(); } catch (_) {} }, 260);
+          }
+        }
+      }
+      if (this.lightningFlash > 0) {
+        this.lightningFlash = Math.max(0, this.lightningFlash - dt * 3.6);
+      }
     }
 
     // As montanhas/nuvens só se deslocam quando a estrada CURVA (e não mais com o simples avanço em reta)
@@ -842,6 +860,23 @@
         ctx.fillRect(0, 0, W, H);
         ctx.fillStyle = `rgba(255, 238, 175, ${(0.05 * S.glare).toFixed(3)})`;
         ctx.fillRect(0, 0, W, H);
+      }
+      if (this.lightningFlash > 0.02) {
+        // Clarão rápido e raio no horizonte durante tempestades noturnas
+        const fAlpha = Math.min(0.65, this.lightningFlash * 0.65);
+        ctx.fillStyle = `rgba(210, 235, 255, ${fAlpha.toFixed(3)})`;
+        ctx.fillRect(0, 0, W, H);
+        if (this.lightningFlash > 0.55) {
+          const lx = this.lightningX || (W * 0.5);
+          ctx.strokeStyle = `rgba(255, 255, 255, ${Math.min(1, this.lightningFlash).toFixed(2)})`;
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.moveTo(lx, 0);
+          ctx.lineTo(lx - 8, 28);
+          ctx.lineTo(lx + 5, 52);
+          ctx.lineTo(lx - 6, 86);
+          ctx.stroke();
+        }
       }
       ctx.restore();
     }

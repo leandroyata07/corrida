@@ -1004,6 +1004,33 @@ class AudioManager {
     } catch (_) {}
   }
 
+  playThunder() {
+    if (!this.ctx || !this._enabled || this.ctx.state !== 'running') return;
+    this.initNoiseBuffer();
+    if (!this.noiseBuf) return;
+    try {
+      const t = this.ctx.currentTime;
+      const src = this.ctx.createBufferSource();
+      src.buffer = this.noiseBuf;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(160, t);
+      filter.frequency.exponentialRampToValueAtTime(42, t + 1.5);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.01, t);
+      gain.gain.linearRampToValueAtTime(0.24, t + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.6);
+
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.sfxBus || this.ctx.destination);
+      src.start(t);
+      src.stop(t + 1.65);
+    } catch (_) {}
+  }
+
   playCrash() {
     if (!this.ctx || !this._enabled || this.ctx.state !== 'running') return;
     try {

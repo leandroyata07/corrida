@@ -614,25 +614,30 @@
       drawPixelText('MELHOR', hudDataLeft, topY + 15, '#FFD700', 'bold 5px monospace', 'left');
       drawPixelText(bestStr, rightEdge, topY + 15, '#FFD700', 'bold 6.2px monospace', 'right');
 
-      // Linha 3: Volta Atual e Total (Rótulo em Amarelo Dourado #FFD700)
-      const curLap = Math.min(this.player.laps + 1, TOTAL_LAPS);
-      const lapColor = (curLap === TOTAL_LAPS) ? '#FF5252' : '#FFFFFF';
-      drawPixelText('VOLTA', hudDataLeft, topY + 25, '#FFD700', 'bold 5px monospace', 'left');
-      drawPixelText(`${curLap}/${TOTAL_LAPS}`, rightEdge, topY + 25, lapColor, 'bold 6.5px monospace', 'right');
+      // Linha 3: Volta Atual e Total (ou QUALY 1/1)
+      const targetLaps = this.isQualifying ? 1 : TOTAL_LAPS;
+      const curLap = Math.min(this.player.laps + 1, targetLaps);
+      const lapColor = (curLap === targetLaps) ? '#FF5252' : '#FFFFFF';
+      drawPixelText(this.isQualifying ? 'QUALY' : 'VOLTA', hudDataLeft, topY + 25, this.isQualifying ? '#00E5FF' : '#FFD700', 'bold 5px monospace', 'left');
+      drawPixelText(`${curLap}/${targetLaps}`, rightEdge, topY + 25, lapColor, 'bold 6.5px monospace', 'right');
 
-      // Linha 4: Posição na Corrida (Rótulo em Amarelo Dourado #FFD700)
+      // Linha 4: Posição na Corrida (ou Modo Solo no Qualy)
       const ranked = this.getRankedCars();
       const playerPos = ranked.findIndex(c => c.isPlayer) + 1;
+      if (this.isQualifying) {
+        drawPixelText('MODO', hudDataLeft, topY + 35, '#FFD700', 'bold 5px monospace', 'left');
+        drawPixelText('1 VOLTA', rightEdge, topY + 35, '#00E676', 'bold 6.5px monospace', 'right');
+      } else {
+        drawPixelText('POSIÇÃO', hudDataLeft, topY + 35, '#FFD700', 'bold 5px monospace', 'left');
 
-      drawPixelText('POSIÇÃO', hudDataLeft, topY + 35, '#FFD700', 'bold 5px monospace', 'left');
+        let posColor = '#FFFFFF';
+        if (playerPos === 1) posColor = '#FFD700';
+        else if (playerPos === 2) posColor = '#E2E8F0';
+        else if (playerPos === 3) posColor = '#F59E0B';
+        else if (playerPos <= 10) posColor = '#00E5FF';
 
-      let posColor = '#FFFFFF';
-      if (playerPos === 1) posColor = '#FFD700';
-      else if (playerPos === 2) posColor = '#E2E8F0';
-      else if (playerPos === 3) posColor = '#F59E0B';
-      else if (playerPos <= 10) posColor = '#00E5FF';
-
-      drawPixelText(`${playerPos}º/20`, rightEdge, topY + 35, posColor, 'bold 7px monospace', 'right');
+        drawPixelText(`${playerPos}º/20`, rightEdge, topY + 35, posColor, 'bold 7px monospace', 'right');
+      }
 
       // ========================================================
       // 3. MINIMAPA SEMPRE ABAIXO DO HUD DE DADOS (TRANSPARÊNCIA AUMENTADA)

@@ -133,7 +133,9 @@ test('Car transmission and SaveManager work as expected', () => {
     TrackRecords.update('salvador', 48.12, 2);
     TrackRecords.update('salvador', 52.00, 1); // keeps 48.12 bestLap and improves bestRank to 1
     const rec = TrackRecords.get('salvador');
-    ({ gearAtHalf, rpmAtHalf, loadedName: loaded?.playerName, loadedStage: loaded?.seasonStage, afterDelete, recLap: rec?.bestLap, recRank: rec?.bestRank });
+
+    const careerRes = CareerStats.recordRace({ rank: 1, km: 12.5, isRain: true, startPos: 20, carId: 'fusca', isChampion: false });
+    ({ gearAtHalf, rpmAtHalf, loadedName: loaded?.playerName, loadedStage: loaded?.seasonStage, afterDelete, recLap: rec?.bestLap, recRank: rec?.bestRank, careerWins: careerRes.stats.wins, unlockedCount: careerRes.newlyUnlocked.length });
   `, ctx);
 
   assert.ok(res.gearAtHalf >= 2 && res.gearAtHalf <= 4);
@@ -143,6 +145,8 @@ test('Car transmission and SaveManager work as expected', () => {
   assert.equal(res.afterDelete, null);
   assert.equal(res.recLap, 48.12);
   assert.equal(res.recRank, 1);
+  assert.equal(res.careerWins, 1);
+  assert.ok(res.unlockedCount >= 4);
 });
 
 test('All JS files have valid syntax and renderer mixins attach to LH44RacingGame', () => {

@@ -153,7 +153,7 @@ const BOT_BODY_COLORS = [
 // TRACK_DEFINITIONS carregado de js/tracks_data.js
 
 class TrackBuilder {
-  static build(trackDef) {
+  static build(trackDef, mirrored = false) {
     const segments = [];
     const sections = trackDef.sections;
     const hasCustomMap = !!(trackDef.mapPoints && trackDef.mapPoints.length > 16);
@@ -492,10 +492,30 @@ class TrackBuilder {
       });
     }
 
+    const finalMap = resampledMapPoints || normMap;
+    if (mirrored) {
+      for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+        seg.curve = -seg.curve;
+        if (seg.scenery) {
+          const flipSc = (sc) => {
+            sc.offset = -sc.offset;
+            if (sc.type === 'sign_left') sc.type = 'sign_right';
+            else if (sc.type === 'sign_right') sc.type = 'sign_left';
+          };
+          if (Array.isArray(seg.scenery)) seg.scenery.forEach(flipSc);
+          else flipSc(seg.scenery);
+        }
+      }
+      for (let i = 0; i < finalMap.length; i++) {
+        finalMap[i] = { x: 1.0 - finalMap[i].x, z: finalMap[i].z };
+      }
+    }
+
     return {
       segments: segments,
       totalLength: segments.length * SEGMENT_LENGTH,
-      mapPoints: resampledMapPoints || normMap
+      mapPoints: finalMap
     };
   }
 }
