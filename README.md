@@ -48,7 +48,14 @@ O jogo conta com HUD completo em tempo real (velocímetro, conta-giros, marcha, 
 ### 5. Time Trial (Contra o Relógio)
 * Pista 100% livre para busca da volta perfeita, com **Carro Fantasma** reproduzindo a sua melhor volta registrada naquele circuito e suporte opcional ao **Modo Espelho**.
 
-### 6. Níveis de Dificuldade
+### 6. Multiplayer Online 2P (`🌐 ONLINE 2P`)
+* **Conexão P2P Direta + Firebase:** Sala criada por código de 4 caracteres (travada para no máximo 2 jogadores), utilizando **WebRTC DataChannel** direto entre os navegadores com fallback automático via **Firebase Realtime Database**.
+* **Multiplataforma:** Funciona entre PC, navegador mobile e APK Android na mesma sala, permitindo que ambos escolham livremente qualquer carro e cor (inclusive idênticos).
+* **Modos na Sala Online:**
+  * **Corrida Avulsa:** O Host escolhe qualquer pista e clima para disputa imediata contra o amigo + 18 bots.
+  * **Campeonato Oficial (31 etapas)** ou **Campeonato Rápido (10 etapas):** Disponível nas dificuldades **Normal** (prêmios escalonados e oficina de upgrades independente para cada jogador) e **Avançado** (todos nivelados a 280 km/h), com classificação geral F1, restart sincronizado e cena final de zeramento.
+
+### 7. Níveis de Dificuldade
 * **Modo Normal:**
   * Modo carreira completo com premiação em créditos e oficina de upgrades.
   * Os carros possuem suas características de fábrica balanceadas, evoluindo etapa a etapa.
@@ -131,7 +138,7 @@ Todos os carros são desenhados em código vetorial puro (Canvas 2D em `js/cars.
 * **Sistema de Nitro Progressivo:** O nitro confere +30% de velocidade máxima e +85% de aceleração instantânea, com decaimento suave ao término da carga.
 * **Colisão e Contato Porta a Porta:** Calibrado com precisão física (`0.365`), permitindo disputas lado a lado com faíscas nas latarias (`ParticlePool`).
 * **Controles Suportados (`InputHandler`):**
-  * **Teclado:** Setas ou `W`/`A`/`S`/`D` (Acelera, Freia, Direção), `Espaço` ou `N` (Nitro), `Enter`/`Esc` (Menus e Pausa).
+  * **Teclado:** **`Setas`** e **`W`/`A`/`S`/`D`** ativos simultaneamente (você pode dirigir com a mão esquerda ou direita sem conflito), Nitro em **`Espaço`**, **`Shift`** ou **`N`**, HUD F1 em **`B`** (ou `Tab`), `Enter`/`Esc` (Menus e Pausa).
   * **Gamepad (USB/Bluetooth):** Suporte nativo a analógicos, direcionais e gatilhos progressivos (`L2`/`R2`).
   * **Touchscreen (Mobile):** Botões virtuais na tela com detecção multitoque e resposta imediata.
 
@@ -139,38 +146,38 @@ Todos os carros são desenhados em código vetorial puro (Canvas 2D em `js/cars.
 
 ## 🗺️ As 31 Pistas do Campeonato
 
-O calendário visita 4 pistas clássicas e as 27 capitais brasileiras, cada uma com curva de elevação, traçado próprio (`tracks_data.js`) e monumentos regionais exclusivos:
+O calendário visita **4 pistas clássicas** no topo seguidas pelos **27 estados brasileiros em ordem alfabética pela sigla (`AC` a `TO`)**, cada uma com curva de elevação, traçado próprio (`tracks_data.js`) e monumentos regionais exclusivos:
 
 1. **Brasil GP (Autódromo de Interlagos)** — Abertura clássica com o S do Senna e reta dos boxes.
 2. **Serra Brasileira** — Descidas sinuosas e relevo desafiador.
 3. **Cidade Metrópole** — Circuito urbano rápido entre arranha-céus e luzes noturnas.
 4. **Deserto do Sertão** — Longas retas sob o sol forte e asfalto abrasivo.
-5. **São Paulo • SP (MASP e Ponte Estaiada)**
-6. **Rio de Janeiro • RJ (Cristo Redentor e Pão de Açúcar)**
-7. **Brasília • DF (Catedral e Congresso Nacional)**
-8. **Salvador • BA (Farol da Barra e Elevador Lacerda)**
-9. **Belo Horizonte • MG (Igreja da Pampulha)**
-10. **Curitiba • PR (Jardim Botânico)**
-11. **Porto Alegre • RS (Laçador e Gasômetro)**
-12. **Recife • PE (Pontes Históricas e Marco Zero)**
-13. **Fortaleza • CE (Dragão do Mar e Praia de Iracema)**
-14. **Manaus • AM (Teatro Amazonas e Ponte Rio Negro)**
-15. **Belém • PA (Mercado Ver-o-Peso)**
-16. **Goiânia • GO (Monumento às Três Raças)**
-17. **Florianópolis • SC (Ponte Hercílio Luz)**
-18. **Vitória • ES (Terceira Ponte e Convento da Penha)**
-19. **Natal • RN (Forte dos Reis Magos e Dunas)**
-20. **Maceió • AL (Pajuçara e Orla das Jangadas)**
-21. **João Pessoa • PB (Farol do Cabo Branco)**
-22. **São Luís • MA (Casarões Coloniais e Azulejos)**
-23. **Teresina • PI (Ponte Estaiada de Teresina)**
-24. **Aracaju • SE (Arcos da Orla de Atalaia)**
-25. **Cuiabá • MT (Centro Geodésico da América do Sul)**
-26. **Campo Grande • MS (Parque das Nações Indígenas)**
-27. **Porto Velho • RO (Estrada de Ferro Madeira-Mamoré)**
-28. **Rio Branco • AC (Passarela Joaquim Macedo)**
-29. **Macapá • AP (Fortaleza de São José e Linha do Equador)**
-30. **Boa Vista • RR (Monumento aos Pioneiros)**
+5. **Rio Branco • AC (Passarela Joaquim Macedo)**
+6. **Maceió • AL (Pajuçara e Orla das Jangadas)**
+7. **Manaus • AM (Teatro Amazonas e Ponte Rio Negro)**
+8. **Macapá • AP (Fortaleza de São José e Linha do Equador)**
+9. **Salvador • BA (Farol da Barra e Elevador Lacerda)**
+10. **Fortaleza • CE (Dragão do Mar e Praia de Iracema)**
+11. **Brasília • DF (Catedral e Congresso Nacional)**
+12. **Vitória • ES (Terceira Ponte e Convento da Penha)**
+13. **Goiânia • GO (Monumento às Três Raças)**
+14. **São Luís • MA (Casarões Coloniais e Azulejos)**
+15. **Belo Horizonte • MG (Igreja da Pampulha)**
+16. **Campo Grande • MS (Parque das Nações Indígenas)**
+17. **Cuiabá • MT (Centro Geodésico da América do Sul)**
+18. **Belém • PA (Mercado Ver-o-Peso)**
+19. **João Pessoa • PB (Farol do Cabo Branco)**
+20. **Recife • PE (Pontes Históricas e Marco Zero)**
+21. **Teresina • PI (Ponte Estaiada de Teresina)**
+22. **Curitiba • PR (Jardim Botânico)**
+23. **Rio de Janeiro • RJ (Cristo Redentor e Pão de Açúcar)**
+24. **Natal • RN (Forte dos Reis Magos e Dunas)**
+25. **Porto Velho • RO (Estrada de Ferro Madeira-Mamoré)**
+26. **Boa Vista • RR (Monumento aos Pioneiros)**
+27. **Porto Alegre • RS (Laçador e Gasômetro)**
+28. **Florianópolis • SC (Ponte Hercílio Luz)**
+29. **Aracaju • SE (Arcos da Orla de Atalaia)**
+30. **São Paulo • SP (MASP e Ponte Estaiada)** — *Final do Campeonato Oficial*
 31. **Palmas • TO (Palácio Araguaia e Grande Reta Final)**
 
 ---
@@ -212,25 +219,27 @@ O grid é composto por 19 inteligências artificiais com traços comportamentais
 
 * `index.html` — Ponto de entrada, canvas, overlays de áudio/qualidade/touch e carregamento ordenado dos scripts.
 * `css/style.css` — Estilização responsiva e controles mobile.
-* `sw.js` & `manifest.webmanifest` — Suporte PWA e cache offline versionado.
+* `sw.js` & `manifest.webmanifest` — Suporte PWA com cache *Network-First* versionado.
 * `js/constants.js` — Constantes globais, pilotos da F1, pontuação, marchas e músicas.
 * `js/audio.js` — Motor de áudio procedural via Web Audio API (motor, derrapagem, efeitos e trilha chiptune).
 * `js/particles.js` — Pool de partículas (`ParticlePool`) para poeira, faíscas, fumaça, chuva e neve.
-* `js/input.js` — Gerenciador unificado de Teclado, Gamepad e Touch (`InputHandler`).
+* `js/input.js` — Gerenciador unificado de Teclado (`Setas` + `WASD`), Gamepad e Touch (`InputHandler`).
 * `js/cars.js` — Definições e renderização vetorial dos 20 carros brasileiros (`CAR_MODELS` e `CarArt`).
 * `js/car.js` — Física individual dos veículos, transmissão, nitro e IA (`Car`).
-* `js/tracks_data.js` — Geometria, curvas e elevações pré-calculadas das 31 pistas.
+* `js/tracks_data.js` — Geometria, curvas e elevações pré-calculadas das 31 pistas (4 clássicas + 27 estados em ordem alfabética).
 * `js/tracks.js` — Construtor de pistas (`TrackBuilder`) e presets/interpolação atmosférica (`ENV_PRESETS`).
 * `js/monuments.js` — Horizontes, nuvens, skyline com janelas reativas e monumentos de cada cidade.
 * `js/sky_renderer.js` — Mixin de renderização de céu, Sol/Lua, estrelas, biomas e chuva/neve.
 * `js/road_renderer.js` — Mixin de projeção pseudo-3D de pista, zebras, postes, placas e carros.
 * `js/hud_renderer.js` — Mixin de HUD de corrida, minimapa, gap de tempo, Qualy e layouts de tela.
-* `js/menu_renderer.js` — Mixin de menus, seleção de modos, calendário customizado, garagem, upgrades e encerramento.
+* `js/menu_renderer.js` — Mixin de menus, seleção de modos, lobby online, calendário customizado, garagem, upgrades e encerramento.
 * `js/save.js` — Persistência local em `localStorage` (`SaveManager`, `TrackRecords`, `CareerStats`).
+* `js/netplay.js` — Gerenciador Multiplayer Online 2P (`NetplayManager`) via WebRTC P2P + Firebase Realtime Database.
 * `js/game.js` — Loop principal, máquina de estados, regras de corrida/campeonato e integração geral (`LH44RacingGame`).
 * `js/main.js` — Inicialização do jogo e registro do Service Worker.
 * `tests/game.test.mjs` — Suíte automatizada de testes unitários com `node:test`.
 * `android-project/` — Projeto Android nativo em WebView com assets sincronizados e script de build.
+* [`CARROS_E_PILOTOS.md`](CARROS_E_PILOTOS.md) — Documentação detalhada dos 20 carros, níveis de upgrades e IA dos 19 pilotos.
 
 ---
 

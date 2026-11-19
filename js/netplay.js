@@ -90,6 +90,13 @@ class NetplayManager {
       guestCarIndex: 1,
       guestColorIndex: 0,
       guestReady: false,
+      onlineMode: 'QUICK',
+      diffMode: 'NORMAL',
+      seasonStage: 0,
+      seasonSchedule: [],
+      championshipPoints: null,
+      hostUpgrades: { engine: 0, tires: 0, turbo: 0 },
+      guestUpgrades: { engine: 0, tires: 0, turbo: 0 },
       raceSeq: 0
     };
 
@@ -127,8 +134,8 @@ class NetplayManager {
         return false;
       }
       const meta = snap.val();
-      if (meta.guestName && meta.status === 'RACING') {
-        this.errorMsg = 'Sala já está em corrida.';
+      if (meta.guestName) {
+        this.errorMsg = (meta.status === 'RACING') ? 'Sala já está em corrida.' : 'Sala lotada (máx. 2 jogadores).';
         return false;
       }
 
@@ -138,6 +145,8 @@ class NetplayManager {
         guestColorIndex: playerInfo.colorIndex || 0,
         guestReady: false
       });
+      ref.child('meta/guestName').onDisconnect().set('');
+      ref.child('meta/guestReady').onDisconnect().set(false);
 
       this.roomRef = ref;
       this.roomCode = clean;

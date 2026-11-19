@@ -145,5 +145,10 @@ O comportamento dos 19 bots é controlado em tempo real no método de atualizaç
 * Nas **etapas seguintes**, o grid dos bots é recalculado conforme a **pontuação acumulada no campeonato** (quem lidera o torneio entre os bots larga na frente).
 * O jogador larga na posição conquistada no **Qualy** ou em **P20** caso opte por largar sem classificação.
 
+### 6. Regras no Multiplayer Online 2P
+* **Grid de 20 Carros:** **Host (`P19`) + Amigo (`P20`) + 18 Bots** simulados pelo Host.
+* **Carros e Cores Livres:** Ambos os jogadores podem escolher qualquer carro e cor, inclusive modelos e cores idênticos.
+* **Upgrades Online:** No **Campeonato Online (Normal)**, cada jogador acumula seus próprios créditos e compra seus próprios upgrades de Motor, Pneus e Turbo entre etapas (sincronizados na sala); no **Modo Avançado**, todos correm nivelados a **280 km/h**.
+
 ---
 *LH44 — Low to High Speed* 🏁🇧🇷

@@ -999,6 +999,71 @@
       this.startRaceCountdown(true);
     }
 
+    launchOnlineFromLobby() {
+      const np = this.netplay;
+      if (!np || np.role !== 'HOST' || !np.meta) return;
+      if (!(np.meta.guestName && np.meta.hostReady && np.meta.guestReady)) {
+        this.audio.playBeep(220, 0.12);
+        return;
+      }
+      const oMode = np.meta.onlineMode || 'QUICK';
+      const nextSeq = (np.meta.raceSeq || 0) + 1;
+      const patch = { status: 'RACING', raceSeq: nextSeq };
+      if (oMode !== 'QUICK' && (!np.meta.seasonSchedule || np.meta.seasonSchedule.length === 0 || (np.meta.seasonStage || 0) === 0)) {
+        let sched = [];
+        if (oMode === 'CHAMP_31') {
+          sched = this.getChampionshipSchedule();
+        } else {
+          const pool = Array.from({ length: TRACK_DEFINITIONS.length }, (_, i) => i);
+          for (let i = pool.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [pool[i], pool[j]] = [pool[j], pool[i]];
+          }
+          sched = pool.slice(0, 10);
+        }
+        patch.seasonSchedule = sched;
+        patch.seasonStage = 0;
+        patch.trackIndex = sched[0];
+        patch.championshipPoints = { bots: new Array(18).fill(0), host: 0, guest: 0 };
+        patch.hostUpgrades = { engine: 0, tires: 0, turbo: 0 };
+        patch.guestUpgrades = { engine: 0, tires: 0, turbo: 0 };
+      }
+      Object.assign(np.meta, patch);
+      np.updateMeta(patch);
+      this.startOnlineRace();
+    }
+
+    finishOnlineUpgradeStep() {
+      const np = this.netplay;
+      this.isOnlineRace = false;
+      this.remoteCar = null;
+      if (np && np.connected) {
+        const isHost = (np.role === 'HOST');
+        const patch = { status: 'LOBBY' };
+        if (isHost) {
+          patch.hostUpgrades = this.playerUpgrades ? { ...this.playerUpgrades } : { engine: 0, tires: 0, turbo: 0 };
+          patch.hostReady = true;
+          patch.guestReady = false;
+          patch.seasonStage = (this.seasonStage || 0) + 1;
+          if (this.seasonSchedule && this.seasonSchedule[patch.seasonStage] !== undefined) {
+            patch.trackIndex = this.seasonSchedule[patch.seasonStage];
+          }
+        } else {
+          patch.guestUpgrades = this.playerUpgrades ? { ...this.playerUpgrades } : { engine: 0, tires: 0, turbo: 0 };
+          patch.guestReady = true;
+        }
+        if (np.meta) Object.assign(np.meta, patch);
+        np.updateMeta(patch);
+      }
+      this.onlineSubMode = (np && np.connected) ? 'ROOM' : 'CHOICE';
+      this.fadeTransition('ONLINE_LOBBY', () => {
+        if (this.audio) {
+          this.audio.musicPlaying = false;
+          this.audio.playTitleMusic();
+        }
+      });
+    }
+
     startOnlineRace() {
       if (!this.netplay || !this.netplay.meta) return;
       const meta = this.netplay.meta;
@@ -1009,13 +1074,37 @@
         this.netplay.clearRaceState();
       }
       this.isOnlineRace = true;
-      this.gameMode = 'QUICK_RACE';
-      this.diffMode = 'NORMAL';
+      const oMode = meta.onlineMode || 'QUICK';
+      this.onlineChampMode = (oMode !== 'QUICK');
+      this.gameMode = this.onlineChampMode ? 'CHAMPIONSHIP' : 'QUICK_RACE';
+      this.diffMode = meta.diffMode || 'NORMAL';
       this.mirrorTrack = false;
       this.isQualifying = false;
       this.qualifiedGridPos = 0;
 
-      this.trackIndex = meta.trackIndex || 0;
+      if (this.onlineChampMode && meta.seasonSchedule && meta.seasonSchedule.length > 0) {
+        this.seasonSchedule = [...meta.seasonSchedule];
+        this.seasonStage = meta.seasonStage || 0;
+        this.trackIndex = this.seasonSchedule[this.seasonStage] || 0;
+        if (this.seasonStage === 0) {
+          this.playerCredits = 0;
+          this.playerUpgrades = { engine: 0, tires: 0, turbo: 0 };
+          this.championshipPoints = new Array(TOTAL_RACERS).fill(0);
+        } else if (meta.championshipPoints) {
+          const isHost = (this.netplay.role === 'HOST');
+          const cp = meta.championshipPoints;
+          this.championshipPoints = new Array(TOTAL_RACERS).fill(0);
+          this.championshipPoints[0] = isHost ? (cp.host || 0) : (cp.guest || 0);
+          this.championshipPoints[19] = isHost ? (cp.guest || 0) : (cp.host || 0);
+          const bArr = Array.isArray(cp.bots) ? cp.bots : [];
+          for (let i = 0; i < 18; i++) {
+            this.championshipPoints[i + 1] = bArr[i] || 0;
+          }
+        }
+      } else {
+        this.trackIndex = meta.trackIndex || 0;
+      }
+
       this.chosenEnvCond = meta.envCond || 'DIA';
       this.envCond = this.chosenEnvCond;
       this.songIndex = meta.songIndex || 0;
@@ -1054,6 +1143,22 @@
         this.initSeasonRoster();
       }
 
+      const applyOnlineUpgrades = (car, model, up) => {
+        if (this.diffMode === 'ADVANCED') {
+          car.effectiveMaxSpeed = 280;
+          return;
+        }
+        const u = (this.onlineChampMode && up) ? up : { engine: 0, tires: 0, turbo: 0 };
+        const engLvl = Math.max(0, Math.min(3, u.engine || 0));
+        const bonuses = (typeof MODEL_ENGINE_SPEED_BONUS !== 'undefined' && MODEL_ENGINE_SPEED_BONUS[model.id])
+          ? MODEL_ENGINE_SPEED_BONUS[model.id]
+          : [0, 8, 16, 24];
+        car.effectiveMaxSpeed = (model.maxSpeed || 220) + (bonuses[engLvl] || 0);
+        car.accelMultiplier = 1.0 + engLvl * 0.05;
+        car.gripMultiplier = 1.0 + (u.tires || 0) * 0.06;
+        car.nitroDurationBonus = (u.turbo || 0) * 0.60;
+      };
+
       // 18 bots nas posições P1..P18
       for (let i = 0; i < 18; i++) {
         const slot = i + 1;
@@ -1067,7 +1172,7 @@
         bot.bodyColor = profile.bodyColor || '#64748B';
         bot.driverCode = profile.driverCode || 'BOT';
         bot.driverName = profile.driverName || 'PILOTO';
-        bot.effectiveMaxSpeed = bModel.maxSpeed || 220;
+        bot.effectiveMaxSpeed = (this.diffMode === 'ADVANCED') ? 280 : (bModel.maxSpeed || 220);
         bot.aiPersonality = profile.aiPersonality || 'TECHNICAL';
         bot.pressureTimer = 0;
         bot.aiSkill = Math.max(0.78, Math.min(0.99, (profile.baseAiSkill || 0.90)));
@@ -1096,7 +1201,7 @@
 
       const hostCar = new Car(isHost ? 0 : 19, hostModel, isHost);
       hostCar.bodyColor = hostColor.hex;
-      hostCar.effectiveMaxSpeed = hostModel.maxSpeed || 220;
+      applyOnlineUpgrades(hostCar, hostModel, isHost ? this.playerUpgrades : meta.hostUpgrades);
       hostCar.z = hostZ;
       hostCar.x = -GRID_COL_X;
       hostCar.targetX = hostCar.x;
@@ -1109,7 +1214,7 @@
 
       const guestCar = new Car(isHost ? 19 : 0, guestModel, !isHost);
       guestCar.bodyColor = guestColor.hex;
-      guestCar.effectiveMaxSpeed = guestModel.maxSpeed || 220;
+      applyOnlineUpgrades(guestCar, guestModel, !isHost ? this.playerUpgrades : meta.guestUpgrades);
       guestCar.z = guestZ;
       guestCar.x = GRID_COL_X;
       guestCar.targetX = guestCar.x;
@@ -1602,38 +1707,32 @@
               const nextE = envList[(idx + 1) % envList.length];
               this.audio.playBeep(440, 0.05);
               np.updateMeta({ envCond: nextE });
+            } else if (isHost && hit(L.btnMode, click) && (np.meta.seasonStage || 0) === 0) {
+              const modes = ['QUICK', 'CHAMP_31', 'CHAMP_10'];
+              const mIdx = modes.indexOf(np.meta.onlineMode || 'QUICK');
+              const nextM = modes[(mIdx + 1) % modes.length];
+              this.audio.playBeep(440, 0.06);
+              np.updateMeta({ onlineMode: nextM, seasonStage: 0, seasonSchedule: [] });
+            } else if (isHost && hit(L.btnDiff, click) && (np.meta.seasonStage || 0) === 0) {
+              const nextD = ((np.meta.diffMode || 'NORMAL') === 'NORMAL') ? 'ADVANCED' : 'NORMAL';
+              this.audio.playBeep(440, 0.06);
+              np.updateMeta({ diffMode: nextD });
             } else if (hit(L.btnReady, click)) {
               this.audio.playBeep(523, 0.08);
               if (isHost) np.updateMeta({ hostReady: !np.meta.hostReady });
               else np.updateMeta({ guestReady: !np.meta.guestReady });
             } else if (isHost && hit(L.btnStart, click)) {
-              if (np.meta.guestName && np.meta.hostReady && np.meta.guestReady) {
-                const nextSeq = (np.meta.raceSeq || 0) + 1;
-                np.meta.status = 'RACING';
-                np.meta.raceSeq = nextSeq;
-                np.updateMeta({ status: 'RACING', raceSeq: nextSeq });
-                this.startOnlineRace();
-                this.input.clearPulses();
-                return;
-              } else {
-                this.audio.playBeep(220, 0.12);
-              }
+              this.launchOnlineFromLobby();
+              this.input.clearPulses();
+              return;
             }
           }
         }
 
         if (sub === 'ROOM' && this.input.justPressedEnter && np && np.role === 'HOST' && np.meta) {
-          if (np.meta.guestName && np.meta.hostReady && np.meta.guestReady) {
-            const nextSeq = (np.meta.raceSeq || 0) + 1;
-            np.meta.status = 'RACING';
-            np.meta.raceSeq = nextSeq;
-            np.updateMeta({ status: 'RACING', raceSeq: nextSeq });
-            this.startOnlineRace();
-            this.input.clearPulses();
-            return;
-          } else {
-            this.audio.playBeep(220, 0.12);
-          }
+          this.launchOnlineFromLobby();
+          this.input.clearPulses();
+          return;
         }
 
         if (sub === 'JOIN_CODE' && this.input.justPressedEnter && np) {
@@ -2997,7 +3096,7 @@
         }
         if (this.input.justPressedEnter) {
           this.audio.playBeep(440, 0.1);
-          if (this.isOnlineRace) {
+          if (this.isOnlineRace && !this.onlineChampMode) {
             this.isOnlineRace = false;
             this.remoteCar = null;
             if (this.netplay && this.netplay.role === 'HOST') {
@@ -3032,10 +3131,14 @@
           const hasNext = (this.seasonSchedule && this.seasonSchedule.length > 0 && this.seasonStage < this.seasonSchedule.length - 1);
           if (hasNext) {
             this.computeNextGridOrder();
-            this.saveCurrentChampionship();
+            if (!this.isOnlineRace) {
+              this.saveCurrentChampionship();
+            }
             if (this.diffMode === 'NORMAL') {
               this.selectedUpgradeIndex = 0;
               this.fadeTransition('SEASON_UPGRADES');
+            } else if (this.isOnlineRace) {
+              this.finishOnlineUpgradeStep();
             } else {
               this.fadeTransition('SAVE_PROGRESS');
             }
@@ -3128,8 +3231,19 @@
           }
           this.championshipPoints.fill(0);
           this.initSeasonRoster();
-          this.loadTrack(0);
-          this.fadeTransition('MENU');
+          if (this.isOnlineRace) {
+            this.isOnlineRace = false;
+            this.onlineChampMode = false;
+            this.remoteCar = null;
+            if (this.netplay && this.netplay.role === 'HOST') {
+              this.netplay.updateMeta({ status: 'LOBBY', seasonStage: 0, guestReady: false });
+            }
+            this.onlineSubMode = (this.netplay && this.netplay.connected) ? 'ROOM' : 'CHOICE';
+            this.fadeTransition('ONLINE_LOBBY');
+          } else {
+            this.loadTrack(0);
+            this.fadeTransition('MENU');
+          }
         }
         this.input.clearPulses();
         return;
@@ -4331,6 +4445,15 @@
           isChampion: isChampWin
         });
         this.newlyUnlockedAchievements = res.newlyUnlocked || [];
+      }
+      if (this.isOnlineRace && this.onlineChampMode && this.netplay && this.netplay.role === 'HOST') {
+        this.netplay.updateMeta({
+          championshipPoints: {
+            bots: this.championshipPoints.slice(1, 19),
+            host: this.championshipPoints[0] || 0,
+            guest: this.championshipPoints[19] || 0
+          }
+        });
       }
     }
 

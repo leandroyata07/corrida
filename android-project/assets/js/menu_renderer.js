@@ -632,25 +632,42 @@
       ctx.strokeRect(L.btnColNext.x + 4, L.btnColNext.y + 4, 8, L.btnColNext.h - 8);
 
       // Seleção de pista e clima (Host controla)
-      const tIdx = (meta.trackIndex !== undefined) ? meta.trackIndex : 0;
+      const oMode = meta.onlineMode || 'QUICK';
+      const dMode = meta.diffMode || 'NORMAL';
+      const sSched = (meta.seasonSchedule && meta.seasonSchedule.length > 0) ? meta.seasonSchedule : null;
+      const sStage = meta.seasonStage || 0;
+      const inActiveChamp = (oMode !== 'QUICK' && sSched && sStage > 0);
+      const tIdx = inActiveChamp ? (sSched[sStage] || 0) : ((meta.trackIndex !== undefined) ? meta.trackIndex : 0);
       const tDef = TRACK_DEFINITIONS[tIdx] || TRACK_DEFINITIONS[0];
       const env = meta.envCond || 'DIA';
-      if (isHost) {
+      if (isHost && !inActiveChamp && oMode === 'QUICK') {
         drawBtn(L.btnTrkPrev, '◀', '#1E293B', '#FFD700', '#FFFFFF');
         drawBtn(L.btnTrkNext, '▶', '#1E293B', '#FFD700', '#FFFFFF');
+      }
+      if (isHost) {
         drawBtn(L.btnEnvNext, `CLIMA: ${env}`, '#1E293B', '#38BDF8', '#E0F2FE', 'bold 5.8px monospace');
       }
       ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
       ctx.fillRect(L.btnTrkPrev.x + 20, L.btnTrkPrev.y, 160, 16);
       ctx.textAlign = 'center';
       ctx.fillStyle = '#FFD700';
-      ctx.font = 'bold 6.2px monospace';
-      ctx.fillText(`PISTA: ${tDef.name}`, L.btnTrkPrev.x + 100, L.btnTrkPrev.y + 10.5);
+      ctx.font = 'bold 6.0px monospace';
+      const trackLabel = (oMode !== 'QUICK' && sSched)
+        ? `ETAPA ${sStage + 1}/${sSched.length}: ${tDef.name}`
+        : (oMode === 'CHAMP_31' ? `CAMP. OFICIAL (31 ETAPAS)` : (oMode === 'CHAMP_10' ? `CAMP. RÁPIDO (10 ETAPAS)` : `PISTA: ${tDef.name}`));
+      ctx.fillText(trackLabel, L.btnTrkPrev.x + 100, L.btnTrkPrev.y + 10.5);
       if (!isHost) {
         ctx.fillStyle = '#94A3B8';
         ctx.font = '5.8px monospace';
         ctx.fillText(`CLIMA: ${env}`, L.btnEnvNext.x + L.btnEnvNext.w / 2, L.btnEnvNext.y + 10.5);
       }
+
+      // Modo (Corrida / Camp 31 / Camp 10) e Dificuldade (Normal / Avançado)
+      const modeNames = { QUICK: 'CORRIDA AVULSA', CHAMP_31: 'CAMP. OFICIAL (31)', CHAMP_10: 'CAMP. RÁPIDO (10)' };
+      const modeTxt = `MODO: ${modeNames[oMode] || 'CORRIDA AVULSA'}`;
+      const diffTxt = `DIF: ${dMode === 'ADVANCED' ? 'AVANÇADO (280)' : 'NORMAL (UPGRADES)'}`;
+      drawBtn(L.btnMode, modeTxt, '#1E293B', (isHost && !inActiveChamp) ? '#38BDF8' : '#475569', (oMode !== 'QUICK') ? '#38BDF8' : '#E2E8F0', 'bold 5.6px monospace');
+      drawBtn(L.btnDiff, diffTxt, '#1E293B', (isHost && !inActiveChamp) ? '#F59E0B' : '#475569', (dMode === 'ADVANCED') ? '#F87171' : '#FDE68A', 'bold 5.6px monospace');
 
       // Botão Pronto / Iniciar
       const myReady = isHost ? !!meta.hostReady : !!meta.guestReady;
@@ -659,7 +676,8 @@
       drawBtn(L.btnBack, '◀ SAIR DA SALA', '#1E293B', '#EF4444', '#EF4444', 'bold 6.5px monospace');
       if (isHost) {
         const canStart = !!(meta.guestName && meta.hostReady && meta.guestReady);
-        drawBtn(L.btnStart, canStart ? '🏁 LARGAR AGORA ▶' : 'AGUARDANDO AMIGO', canStart ? '#065F46' : '#1E293B', canStart ? '#10B981' : '#475569', canStart ? '#FFFFFF' : '#94A3B8', 'bold 6.5px monospace');
+        const startTxt = inActiveChamp ? `🏁 LARGAR ETAPA ${sStage + 1} ▶` : '🏁 LARGAR AGORA ▶';
+        drawBtn(L.btnStart, canStart ? startTxt : 'AGUARDANDO AMIGO', canStart ? '#065F46' : '#1E293B', canStart ? '#10B981' : '#475569', canStart ? '#FFFFFF' : '#94A3B8', 'bold 6.5px monospace');
       }
 
       ctx.restore();
@@ -3066,7 +3084,9 @@
         this.playerCredits -= price;
         this.playerUpgrades[key] = curLvl + 1;
         this.audio.playBeep(659, 0.15);
-        this.saveCurrentChampionship();
+        if (!this.isOnlineRace) {
+          this.saveCurrentChampionship();
+        }
         return true;
       } else {
         this.audio.playBeep(220, 0.15);
@@ -3100,8 +3120,12 @@
         if (click.x >= btn.x && click.x <= btn.x + btn.w &&
             click.y >= btn.y && click.y <= btn.y + btn.h) {
           this.audio.playBeep(523, 0.12);
-          this.saveCurrentChampionship();
-          this.fadeTransition('SAVE_PROGRESS');
+          if (this.isOnlineRace) {
+            this.finishOnlineUpgradeStep();
+          } else {
+            this.saveCurrentChampionship();
+            this.fadeTransition('SAVE_PROGRESS');
+          }
           this.input.clearPulses();
           return;
         }
@@ -3119,8 +3143,12 @@
       if (this.input.justPressedEnter) {
         if (this.selectedUpgradeIndex === 3) {
           this.audio.playBeep(523, 0.12);
-          this.saveCurrentChampionship();
-          this.fadeTransition('SAVE_PROGRESS');
+          if (this.isOnlineRace) {
+            this.finishOnlineUpgradeStep();
+          } else {
+            this.saveCurrentChampionship();
+            this.fadeTransition('SAVE_PROGRESS');
+          }
         } else {
           const item = layout.cards[this.selectedUpgradeIndex];
           if (item) this.buyUpgrade(item.key);
