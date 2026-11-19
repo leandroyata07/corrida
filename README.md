@@ -30,7 +30,7 @@ O jogo conta com HUD completo em tempo real (velocímetro, conta-giros, marcha, 
 
 ### 1. Campeonato F1 Oficial (Season Mode)
 * **31 Etapas:** O campeonato completo percorre os 26 estados do Brasil + Distrito Federal e 4 circuitos clássicos, com grande final em **São Paulo (SP)**.
-* **Sistema de Pontuação Oficial da F1:** 25, 18, 15, 12, 10, 8, 6, 4, 2, 1 pontos (P1 ao P10).
+* **Sistema de Pontuação Top 15:** 18, 15, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 pontos (P1 ao P15).
 * **3 Slots de Salvamento (`SaveManager`):** Salva progresso, pontuação, grid dos bots, créditos, upgrades, carro, cor e escolha climática em `localStorage`.
 * **Oficina entre Corridas & Zeramento:** No modo Normal, os créditos acumulados permitem comprar melhorias mecânicas entre etapas. Ao concluir a última etapa, o jogo exibe o pódio final do campeonato (`CHAMPIONSHIP_RESULT`) e a cena de encerramento (`ENDING_SCENE`) com fogos, confetes e música comemorativa.
 

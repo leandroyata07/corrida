@@ -31,8 +31,8 @@ let   DRAW_DISTANCE    = IS_MOBILE_CLIENT ? 140 : 180;
 const TOTAL_LAPS      = 3;
 const TOTAL_RACERS    = 20;
 
-// Sistema Oficial de Pontuação da Fórmula 1 (1º ao 10º lugar)
-const F1_POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+// Sistema de Pontuação Top 15 (1º ao 15º lugar)
+const F1_POINTS = [18, 15, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
 // 19 Adversários Clássicos e Contemporâneos da F1 com suas siglas oficiais
 const F1_DRIVERS = [

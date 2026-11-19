@@ -715,7 +715,7 @@
             '• PRÊMIOS ESCALONADOS'
           ] : [
             `• ${TRACK_DEFINITIONS.length} ETAPAS (FINAL EM SP)`,
-            '• PONTUAÇÃO F1 (1º AO 10º)',
+            '• PONTUAÇÃO TOP 15 (1º AO 15º)',
             '• DISPUTA DO TÍTULO & PÓDIO'
           ],
           box: L.card0

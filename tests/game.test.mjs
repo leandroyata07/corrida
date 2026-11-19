@@ -53,7 +53,7 @@ test('constants.js loads F1_DRIVERS, F1_POINTS and GEAR_RATIOS correctly', () =>
   loadScript(ctx, 'js/constants.js');
   const result = vm.runInContext('({ drivers: F1_DRIVERS.length, points: F1_POINTS.length, gears: GEAR_RATIOS.length, totalRacers: TOTAL_RACERS })', ctx);
   assert.equal(result.drivers, 19);
-  assert.equal(result.points, 10);
+  assert.equal(result.points, 15);
   assert.equal(result.gears, 5);
   assert.equal(result.totalRacers, 20);
 });
