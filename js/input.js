@@ -5,6 +5,7 @@
       this.onViewportChange = onViewportChange;
 
       this.keys = { up: false, down: false, left: false, right: false, nitro: false, leaderboard: false };
+      this.heldKeys = new Set();
       this.touch = {
         dpadUp: false,
         dpadDown: false,
@@ -241,6 +242,16 @@
       }
     }
 
+    syncHeldKeys() {
+      const h = this.heldKeys;
+      this.keys.up = h.has('arrowup') || h.has('w') || h.has('z');
+      this.keys.down = h.has('arrowdown') || h.has('s') || h.has('x');
+      this.keys.left = h.has('arrowleft') || h.has('a');
+      this.keys.right = h.has('arrowright') || h.has('d');
+      this.keys.nitro = h.has(' ') || h.has('n') || h.has('shift');
+      this.keys.leaderboard = h.has('b') || h.has('tab');
+    }
+
     syncCombinedInputs() {
       const prevUp = this.up;
       const prevDown = this.down;
@@ -407,7 +418,7 @@
         // Intercepta e previne ações do sistema Android quando botões do GameSir X5 são pressionados!
         const isAndroidBack = (e.key === 'Back' || e.code === 'GoBack' || e.keyCode === 4);
         const isGamepadKey = (e.keyCode >= 96 && e.keyCode <= 110) || (e.keyCode >= 19 && e.keyCode <= 23);
-        if (isAndroidBack || isGamepadKey || ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+        if (isAndroidBack || isGamepadKey || ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Shift'].includes(e.key)) {
           e.preventDefault();
         }
 
@@ -487,37 +498,46 @@
             return;
         }
 
-        // Teclado padrão PC
+        // Teclado padrão PC (Setas + WASD simultâneos, Space/Shift/N para Nitro, B/Tab para HUD F1)
+        const lk = (e.key || '').toLowerCase();
+        if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd', 'z', 'x', ' ', 'n', 'shift', 'b', 'tab'].includes(lk)) {
+          this.heldKeys.add(lk);
+        }
         switch (e.key) {
           case 'ArrowUp':
           case 'w':
           case 'W':
-            this.keys.up = true;
+          case 'z':
+          case 'Z':
+            this.syncHeldKeys();
             this.syncCombinedInputs();
             break;
           case 'ArrowDown':
           case 's':
           case 'S':
-            this.keys.down = true;
+          case 'x':
+          case 'X':
+            this.syncHeldKeys();
             this.syncCombinedInputs();
             break;
           case 'ArrowLeft':
           case 'a':
           case 'A':
-            this.keys.left = true;
+            this.syncHeldKeys();
             this.syncCombinedInputs();
             break;
           case 'ArrowRight':
           case 'd':
           case 'D':
-            this.keys.right = true;
+            this.syncHeldKeys();
             this.syncCombinedInputs();
             break;
           case ' ':
           case 'n':
           case 'N':
+          case 'Shift':
             if (!this.keys.nitro && e.key === ' ') this.justPressedEnter = true;
-            this.keys.nitro = true;
+            this.syncHeldKeys();
             this.syncCombinedInputs();
             break;
           case 'c':
@@ -528,17 +548,7 @@
           case 'B':
           case 'Tab':
             e.preventDefault();
-            this.keys.leaderboard = true;
-            this.syncCombinedInputs();
-            break;
-          case 'x':
-          case 'X':
-            this.keys.down = true;
-            this.syncCombinedInputs();
-            break;
-          case 'z':
-          case 'Z':
-            this.keys.up = true;
+            this.syncHeldKeys();
             this.syncCombinedInputs();
             break;
           case '1': case '2': case '3': case '4': case '5':
@@ -611,35 +621,35 @@
         if (e.keyCode === 21) { this.keys.left = false; this.syncCombinedInputs(); return; }
         if (e.keyCode === 22) { this.keys.right = false; this.syncCombinedInputs(); return; }
 
+        const lk = (e.key || '').toLowerCase();
+        if (this.heldKeys.has(lk)) {
+          this.heldKeys.delete(lk);
+        }
         switch (e.key) {
           case 'ArrowUp':
           case 'w':
           case 'W':
-            this.keys.up = false;
-            this.syncCombinedInputs();
-            break;
+          case 'z':
+          case 'Z':
           case 'ArrowDown':
           case 's':
           case 'S':
-            this.keys.down = false;
-            this.syncCombinedInputs();
-            break;
+          case 'x':
+          case 'X':
           case 'ArrowLeft':
           case 'a':
           case 'A':
-            this.keys.left = false;
-            this.syncCombinedInputs();
-            break;
           case 'ArrowRight':
           case 'd':
           case 'D':
-            this.keys.right = false;
-            this.syncCombinedInputs();
-            break;
           case ' ':
           case 'n':
           case 'N':
-            this.keys.nitro = false;
+          case 'Shift':
+          case 'b':
+          case 'B':
+          case 'Tab':
+            this.syncHeldKeys();
             this.syncCombinedInputs();
             break;
           case 'Enter':
