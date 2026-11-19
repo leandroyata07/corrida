@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lh44-cache-v38';
+const CACHE_NAME = 'lh44-cache-v39';
 const ASSETS = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const ASSETS = [
   './js/tracks.js',
   './js/car.js',
   './js/save.js',
+  './js/netplay.js',
   './js/game.js',
   './js/sky_renderer.js',
   './js/road_renderer.js',

@@ -11,7 +11,7 @@
       this.input = new InputManager(
         () => {
           if (this.audio) {
-            const isMenuState = (this.state === 'MENU' || this.state === 'MODE_SELECT' || this.state === 'DIFFICULTY_SELECT' || this.state === 'TRACK_SELECT' || this.state === 'CUSTOM_SCHEDULE_SELECT' || this.state === 'CAR_SELECT' || this.state === 'COLOR_SELECT' || this.state === 'NAME_INPUT' || this.state === 'SEASON_UPGRADES');
+            const isMenuState = (this.state === 'MENU' || this.state === 'ONLINE_LOBBY' || this.state === 'MODE_SELECT' || this.state === 'DIFFICULTY_SELECT' || this.state === 'TRACK_SELECT' || this.state === 'CUSTOM_SCHEDULE_SELECT' || this.state === 'CAR_SELECT' || this.state === 'COLOR_SELECT' || this.state === 'NAME_INPUT' || this.state === 'SEASON_UPGRADES');
             this.audio.unlockAudio(isMenuState);
           }
         },
@@ -281,6 +281,11 @@
       this.initSeasonRoster();
 
       this.gameMode = 'CHAMPIONSHIP'; // 'CHAMPIONSHIP' ou 'QUICK_RACE'
+      this.netplay = (typeof NetplayManager !== 'undefined') ? new NetplayManager() : null;
+      this.isOnlineRace = false;
+      this.remoteCar = null;
+      this.onlineSubMode = 'CHOICE';
+      this.onlineRaceSeq = 0;
       this.customChampionship = false;
       this.customSchedule = [];
       this.customCursorIndex = 0;
@@ -984,6 +989,160 @@
       this.startRaceCountdown(true);
     }
 
+    startOnlineRace() {
+      if (!this.netplay || !this.netplay.meta) return;
+      const meta = this.netplay.meta;
+      this.onlineRaceSeq = meta.raceSeq || 1;
+      this.isOnlineRace = true;
+      this.gameMode = 'QUICK_RACE';
+      this.diffMode = 'NORMAL';
+      this.mirrorTrack = false;
+      this.isQualifying = false;
+      this.qualifiedGridPos = 0;
+
+      this.trackIndex = meta.trackIndex || 0;
+      this.chosenEnvCond = meta.envCond || 'DIA';
+      this.envCond = this.chosenEnvCond;
+      this.songIndex = meta.songIndex || 0;
+      this.loadTrack(this.trackIndex);
+      this.envCur = null;
+      this.envFrom = null;
+      this.envBlend = 1;
+      this.envKey = '';
+      this.updateEnv(0.016);
+
+      this.setupOnlineRaceGrid();
+      this.countdown = 3.6;
+      this.startLightsStage = 0;
+      this.greenLightsTimer = 0;
+      this.raceTimer = 0;
+      this.currentLapTime = 0;
+      this.bestLapTime = 0;
+      this.lastLapTime = 0;
+      this.finishingRace = false;
+      this.finishGraceTimer = 0;
+      this.particles.reset();
+      if (this.audio) {
+        this.audio.stopTitleMusic();
+        this.audio.startRaceMusic(this.songIndex);
+      }
+      this.state = 'COUNTDOWN';
+    }
+
+    setupOnlineRaceGrid() {
+      const meta = this.netplay.meta;
+      const isHost = (this.netplay.role === 'HOST');
+      this.cars = [];
+      this.finishOrder = [];
+      if (!this.seasonBots || this.seasonBots.length < 19) {
+        this.initSeasonRoster();
+      }
+
+      // 18 bots nas posições P1..P18
+      for (let i = 0; i < 18; i++) {
+        const slot = i;
+        const profile = this.seasonBots[slot];
+        const bModel = profile.model;
+        const bColor = profile.color;
+        const gridPos = i + 1;
+        const z = this.wrapZ(-(gridPos * 165));
+        const x = (i % 2 === 0) ? -0.34 : 0.34;
+        const bot = new Car(i + 1, bModel, bColor, false, z, x);
+        bot.driverCode = profile.driver.code;
+        bot.driverName = profile.driver.name;
+        bot.aiPersonality = profile.aiPersonality || 'TECHNICAL';
+        bot.aiSkill = profile.baseAiSkill || 0.90;
+        bot.launchDelay = 0.08 + i * 0.025;
+        bot.gridStartX = x;
+        bot.targetX = x;
+        this.cars.push(bot);
+      }
+
+      // Host em P19 (-0.34), Guest em P20 (+0.34)
+      const hostModel = CAR_MODELS[meta.hostCarIndex || 0] || CAR_MODELS[0];
+      const hostColor = CAR_COLOR_PALETTE[meta.hostColorIndex || 0] || CAR_COLOR_PALETTE[0];
+      const guestModel = CAR_MODELS[meta.guestCarIndex || 0] || CAR_MODELS[0];
+      const guestColor = CAR_COLOR_PALETTE[meta.guestColorIndex || 0] || CAR_COLOR_PALETTE[0];
+
+      const hostZ = this.wrapZ(-(19 * 165));
+      const guestZ = this.wrapZ(-(20 * 165));
+
+      const hostCar = new Car(isHost ? 0 : 19, hostModel, hostColor, isHost, hostZ, -0.34);
+      hostCar.driverName = meta.hostName || 'HOST';
+      hostCar.driverCode = (meta.hostName || 'HST').slice(0, 3).toUpperCase();
+      hostCar.isRemote = !isHost;
+
+      const guestCar = new Car(isHost ? 19 : 0, guestModel, guestColor, !isHost, guestZ, 0.34);
+      guestCar.driverName = meta.guestName || 'AMIGO';
+      guestCar.driverCode = (meta.guestName || 'AMG').slice(0, 3).toUpperCase();
+      guestCar.isRemote = isHost;
+
+      this.cars.push(hostCar);
+      this.cars.push(guestCar);
+      this.player = isHost ? hostCar : guestCar;
+      this.remoteCar = isHost ? guestCar : hostCar;
+      this.cameraZ = this.wrapZ(this.player.z - CAMERA_OFFSET_Z);
+    }
+
+    syncOnlineRace(dt) {
+      if (!this.isOnlineRace || !this.netplay || !this.netplay.connected) return;
+      const p = this.player;
+      if (p) {
+        this.netplay.sendPlayerState({
+          z: Math.round(p.z),
+          x: +p.x.toFixed(3),
+          speed: Math.round(p.speed),
+          steer: +(p.steer || 0).toFixed(2),
+          isNitro: !!p.isNitro,
+          lap: p.lap || 1,
+          finished: !!p.finished,
+          finishTime: p.finishTime || 0
+        }, !!p.finished);
+      }
+
+      if (this.netplay.role === 'HOST') {
+        const botsCompact = [];
+        for (let i = 0; i < this.cars.length; i++) {
+          const c = this.cars[i];
+          if (c.isPlayer || c.isRemote) continue;
+          botsCompact.push([Math.round(c.z), +c.x.toFixed(3), Math.round(c.speed)]);
+        }
+        this.netplay.sendBotsState(botsCompact);
+      } else if (this.netplay.remoteBots && Array.isArray(this.netplay.remoteBots)) {
+        const rb = this.netplay.remoteBots;
+        let bIdx = 0;
+        const alpha = Math.min(1, dt * 12);
+        for (let i = 0; i < this.cars.length; i++) {
+          const c = this.cars[i];
+          if (c.isPlayer || c.isRemote) continue;
+          const entry = rb[bIdx++];
+          if (!entry) continue;
+          const dz = this.shortestDeltaZ(c.z, entry[0]);
+          c.z = this.wrapZ(c.z + dz * alpha);
+          c.x += (entry[1] - c.x) * alpha;
+          c.speed += (entry[2] - c.speed) * alpha;
+        }
+      }
+
+      const rs = this.netplay.remoteState;
+      const rc = this.remoteCar;
+      if (rs && rc) {
+        const alpha = Math.min(1, dt * 15);
+        const dz = this.shortestDeltaZ(rc.z, rs.z || 0);
+        rc.z = this.wrapZ(rc.z + dz * alpha);
+        rc.x += ((rs.x || 0) - rc.x) * alpha;
+        rc.speed += ((rs.speed || 0) - rc.speed) * alpha;
+        rc.steer = rs.steer || 0;
+        rc.isNitro = !!rs.isNitro;
+        rc.lap = rs.lap || rc.lap;
+        if (rs.finished && !rc.finished) {
+          rc.finished = true;
+          rc.finishTime = rs.finishTime || this.raceTimer;
+          if (!this.finishOrder.includes(rc)) this.finishOrder.push(rc);
+        }
+      }
+    }
+
     finishQualySession(lapTime) {
       const avgPoleSpeed = (this.diffMode === 'ADVANCED') ? 274 : 268;
       const poleTime = this.track.totalLength / (avgPoleSpeed * 20);
@@ -1162,11 +1321,12 @@
         const cx = INTERNAL_WIDTH / 2;
         const touchSafe = this.input.touchControlsVisible;
         const btnW = touchSafe ? 144 : 156;
-        const btnH = touchSafe ? 18 : 20;
+        const btnH = touchSafe ? 16 : 17;
         const btnX = Math.round(cx - btnW / 2);
         const slant = 5;
-        const btn0_Y = touchSafe ? 104 : 110;
-        const btn1_Y = touchSafe ? 127 : 135;
+        const btn0_Y = touchSafe ? 100 : 104;
+        const btn1_Y = touchSafe ? 120 : 125;
+        const btn2_Y = touchSafe ? 140 : 146;
 
         let shouldAdvance = false;
         if (this.input.lastCanvasClick) {
@@ -1191,10 +1351,19 @@
             this.mainMenuSelection = 1;
             shouldAdvance = true;
           }
+          // Botão 2 (ONLINE 2P)
+          else if (click.x >= btnX && click.x <= btnX + btnW + slant && click.y >= btn2_Y && click.y <= btn2_Y + btnH) {
+            this.mainMenuSelection = 2;
+            shouldAdvance = true;
+          }
         }
 
-        if (this.input.justPressedUp || this.input.justPressedDown) {
-          this.mainMenuSelection = (this.mainMenuSelection === 0 ? 1 : 0);
+        if (this.input.justPressedUp) {
+          this.mainMenuSelection = (this.mainMenuSelection - 1 + 3) % 3;
+          this.audio.playBeep(440, 0.05);
+        }
+        if (this.input.justPressedDown) {
+          this.mainMenuSelection = (this.mainMenuSelection + 1) % 3;
           this.audio.playBeep(440, 0.05);
         }
 
@@ -1204,17 +1373,189 @@
 
         if (shouldAdvance) {
           this.audio.playBeep(480, 0.08);
+          this.isOnlineRace = false;
           if (this.mainMenuSelection === 0) {
             this.fadeTransition('MODE_SELECT');
-          } else {
+          } else if (this.mainMenuSelection === 1) {
             this.slotSelectMode = 'CONTINUE';
             this.selectedSlotIndex = 0;
             this.slotDeleteConfirm = null;
             this.slotOverwriteConfirm = null;
             this.fadeTransition('SLOT_SELECT');
+          } else {
+            this.onlineSubMode = (this.netplay && this.netplay.connected) ? 'ROOM' : 'CHOICE';
+            this.fadeTransition('ONLINE_LOBBY');
           }
           this.input.clearPulses();
           return;
+        }
+        this.input.clearPulses();
+        return;
+      }
+
+      if (this.state === 'ONLINE_LOBBY') {
+        this.audio.silenceEffects();
+        this.menuCameraZ = this.wrapZ(this.menuCameraZ + 850 * dt);
+        this.cameraRoll = 0;
+        this.shake = 0;
+        this.updateSkyScroll(dt);
+        this.updateEnv(dt);
+
+        const L = this.getOnlineLobbyLayout();
+        const np = this.netplay;
+        const sub = this.onlineSubMode || 'CHOICE';
+        const showCodeInput = (sub === 'JOIN_CODE');
+        if (this.nameWrapper && this.nameInput) {
+          if (showCodeInput) {
+            if (!this.nameWrapper.classList.contains('show')) {
+              this.nameInput.maxLength = 6;
+              this.nameInput.placeholder = 'CÓDIGO';
+              this.nameInput.value = '';
+              this.nameWrapper.classList.add('show');
+              this.nameInput.focus();
+            }
+          } else {
+            this.nameWrapper.classList.remove('show');
+          }
+        }
+
+        // Convidado inicia automaticamente quando Host dispara a corrida
+        if (sub === 'ROOM' && np && np.meta && np.meta.status === 'RACING' && np.meta.raceSeq !== this.onlineRaceSeq) {
+          this.startOnlineRace();
+          this.input.clearPulses();
+          return;
+        }
+
+        if (sub === 'ROOM' && np && !np.connected) {
+          this.onlineSubMode = 'CHOICE';
+        }
+
+        const hit = (b, click) => b && click.x >= b.x && click.x <= b.x + b.w && click.y >= b.y && click.y <= b.y + b.h;
+
+        if (this.input.lastCanvasClick) {
+          const click = this.input.lastCanvasClick;
+          this.input.lastCanvasClick = null;
+
+          if (hit(L.btnBack, click)) {
+            this.audio.playBeep(330, 0.06);
+            if (sub === 'JOIN_CODE') {
+              this.onlineSubMode = 'CHOICE';
+            } else if (sub === 'ROOM') {
+              if (np) np.leaveRoom();
+              this.onlineSubMode = 'CHOICE';
+            } else {
+              this.fadeTransition('MENU');
+            }
+            this.input.clearPulses();
+            return;
+          }
+
+          if (sub === 'CHOICE') {
+            if (hit(L.btnCreate, click) && np) {
+              this.audio.playBeep(523, 0.1);
+              np.createRoom({
+                name: this.playerName || 'HOST',
+                carIndex: this.selectedCarIndex || 0,
+                colorIndex: this.colorIndex || 0,
+                trackIndex: this.trackIndex || 0,
+                envCond: this.chosenEnvCond || 'DIA',
+                songIndex: this.songIndex || 0
+              }).then((code) => {
+                if (code) this.onlineSubMode = 'ROOM';
+              });
+            } else if (hit(L.btnJoin, click)) {
+              this.audio.playBeep(440, 0.08);
+              if (np) np.errorMsg = '';
+              this.onlineSubMode = 'JOIN_CODE';
+            }
+          } else if (sub === 'JOIN_CODE') {
+            if (hit(L.btnJoinGo, click)) {
+              this.input.justPressedEnter = true;
+            }
+          } else if (sub === 'ROOM' && np && np.meta) {
+            const isHost = (np.role === 'HOST');
+            const updateMyCar = () => {
+              if (isHost) {
+                np.updateMeta({ hostCarIndex: this.selectedCarIndex, hostColorIndex: this.colorIndex });
+              } else {
+                np.updateMeta({ guestCarIndex: this.selectedCarIndex, guestColorIndex: this.colorIndex });
+              }
+            };
+            if (hit(L.btnCarPrev, click)) {
+              this.selectedCarIndex = (this.selectedCarIndex - 1 + CAR_MODELS.length) % CAR_MODELS.length;
+              this.colorIndex = MODEL_DEFAULT_COLOR[CAR_MODELS[this.selectedCarIndex].id] || 0;
+              this.audio.playBeep(440, 0.05);
+              updateMyCar();
+            } else if (hit(L.btnCarNext, click)) {
+              this.selectedCarIndex = (this.selectedCarIndex + 1) % CAR_MODELS.length;
+              this.colorIndex = MODEL_DEFAULT_COLOR[CAR_MODELS[this.selectedCarIndex].id] || 0;
+              this.audio.playBeep(440, 0.05);
+              updateMyCar();
+            } else if (hit(L.btnColNext, click)) {
+              this.colorIndex = (this.colorIndex + 1) % CAR_COLOR_PALETTE.length;
+              this.audio.playBeep(440, 0.05);
+              updateMyCar();
+            } else if (isHost && hit(L.btnTrkPrev, click)) {
+              const nextT = ((np.meta.trackIndex || 0) - 1 + TRACK_DEFINITIONS.length) % TRACK_DEFINITIONS.length;
+              this.audio.playBeep(440, 0.05);
+              np.updateMeta({ trackIndex: nextT });
+            } else if (isHost && hit(L.btnTrkNext, click)) {
+              const nextT = ((np.meta.trackIndex || 0) + 1) % TRACK_DEFINITIONS.length;
+              this.audio.playBeep(440, 0.05);
+              np.updateMeta({ trackIndex: nextT });
+            } else if (isHost && hit(L.btnEnvNext, click)) {
+              const envList = ['DIA', 'TARDE', 'NOITE', 'CHUVA_DIA', 'CHUVA_NOITE', 'NEVE_DIA'];
+              const idx = envList.indexOf(np.meta.envCond || 'DIA');
+              const nextE = envList[(idx + 1) % envList.length];
+              this.audio.playBeep(440, 0.05);
+              np.updateMeta({ envCond: nextE });
+            } else if (hit(L.btnReady, click)) {
+              this.audio.playBeep(523, 0.08);
+              if (isHost) np.updateMeta({ hostReady: !np.meta.hostReady });
+              else np.updateMeta({ guestReady: !np.meta.guestReady });
+            } else if (isHost && hit(L.btnStart, click)) {
+              if (np.meta.guestName && np.meta.hostReady && np.meta.guestReady) {
+                const nextSeq = (np.meta.raceSeq || 0) + 1;
+                np.updateMeta({ status: 'RACING', raceSeq: nextSeq });
+              } else {
+                this.audio.playBeep(220, 0.12);
+              }
+            }
+          }
+        }
+
+        if (sub === 'JOIN_CODE' && this.input.justPressedEnter && np) {
+          const code = this.nameInput ? this.nameInput.value : '';
+          np.joinRoom(code, {
+            name: this.playerName || 'AMIGO',
+            carIndex: this.selectedCarIndex || 0,
+            colorIndex: this.colorIndex || 0
+          }).then((ok) => {
+            if (ok) {
+              if (this.nameInput) {
+                this.nameInput.maxLength = 12;
+                this.nameInput.placeholder = 'JOGADOR';
+                this.nameInput.value = this.playerName || 'JOGADOR';
+              }
+              if (this.nameWrapper) this.nameWrapper.classList.remove('show');
+              this.onlineSubMode = 'ROOM';
+              this.audio.playBeep(587, 0.12);
+            } else {
+              this.audio.playBeep(220, 0.14);
+            }
+          });
+        }
+
+        if (this.input.justPressedEsc) {
+          this.audio.playBeep(330, 0.06);
+          if (sub === 'JOIN_CODE') {
+            this.onlineSubMode = 'CHOICE';
+          } else if (sub === 'ROOM') {
+            if (np) np.leaveRoom();
+            this.onlineSubMode = 'CHOICE';
+          } else {
+            this.fadeTransition('MENU');
+          }
         }
         this.input.clearPulses();
         return;
@@ -2544,7 +2885,18 @@
         }
         if (this.input.justPressedEnter) {
           this.audio.playBeep(440, 0.1);
-          if (this.gameMode === 'QUICK_RACE') {
+          if (this.isOnlineRace) {
+            this.isOnlineRace = false;
+            this.remoteCar = null;
+            if (this.netplay && this.netplay.role === 'HOST') {
+              this.netplay.updateMeta({ status: 'LOBBY', guestReady: false });
+            }
+            this.onlineSubMode = (this.netplay && this.netplay.connected) ? 'ROOM' : 'CHOICE';
+            this.fadeTransition('ONLINE_LOBBY', () => {
+              this.audio.musicPlaying = false;
+              this.audio.playTitleMusic();
+            });
+          } else if (this.gameMode === 'QUICK_RACE') {
             this.fadeTransition('MENU', () => {
               this.audio.musicPlaying = false;
               this.audio.playTitleMusic();
@@ -3205,7 +3557,7 @@
       // --- IA DOS 19 BOTS (LARGADA F1 + TRAÇADO + VÁCUO + 3 NITROS E ULTRAPASSAGEM) ---
       for (let i = 0; i < this.cars.length; i++) {
         const bot = this.cars[i];
-        if (bot.isPlayer) continue;
+        if (bot.isPlayer || bot.isRemote || (this.isOnlineRace && this.netplay && this.netplay.role === 'GUEST')) continue;
 
         if (this.raceTimer < bot.launchDelay) {
           bot.speed = 0;
@@ -3475,6 +3827,10 @@
         }
 
         if (bot.collisionCooldown > 0) bot.collisionCooldown -= dt;
+      }
+
+      if (this.isOnlineRace) {
+        this.syncOnlineRace(dt);
       }
 
       // --- FISICA DE COLISAO REALISTA (ESTILO TOP GEAR + RESPEITO A LARGURA REAL DO CARRO) ---
@@ -4116,6 +4472,8 @@
 
       if (this.state === 'MENU') {
         this.renderMenu(ctx);
+      } else if (this.state === 'ONLINE_LOBBY') {
+        this.renderOnlineLobby(ctx);
       } else if (this.state === 'MODE_SELECT') {
         this.renderModeSelect(ctx);
       } else if (this.state === 'TRACK_SELECT') {

@@ -248,12 +248,13 @@
       // 3. BOTÕES 16-BIT RETRÔ: INICIAR / CONTINUAR
       // =========================================================================
       const btnW = touchSafe ? 144 : 156;
-      const btnH = touchSafe ? 18 : 20;
+      const btnH = touchSafe ? 16 : 17;
       const btnX = Math.round(cx - btnW / 2);
       const slant = 5;
 
-      const btn0_Y = touchSafe ? 104 : 110;
-      const btn1_Y = touchSafe ? 127 : 135;
+      const btn0_Y = touchSafe ? 100 : 104;
+      const btn1_Y = touchSafe ? 120 : 125;
+      const btn2_Y = touchSafe ? 140 : 146;
 
       const mPos = this.input ? (this.input.mouseCanvasPos || this.input.mousePos) : null;
       let hoveredBtn = -1;
@@ -261,6 +262,7 @@
         if (mPos.x >= btnX && mPos.x <= btnX + btnW + slant) {
           if (mPos.y >= btn0_Y && mPos.y <= btn0_Y + btnH) hoveredBtn = 0;
           else if (mPos.y >= btn1_Y && mPos.y <= btn1_Y + btnH) hoveredBtn = 1;
+          else if (mPos.y >= btn2_Y && mPos.y <= btn2_Y + btnH) hoveredBtn = 2;
         }
       }
       if (hoveredBtn !== -1) {
@@ -394,8 +396,54 @@
         ctx.fillText('◄', btnX + btnW + slant + 5, btn1_Y + btnH / 2);
       }
 
+      // --- BOTÃO 2: ONLINE 2P (FIREBASE) ---
+      const isSel2 = (this.mainMenuSelection === 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      drawSlantedBox(btnX + 1.5, btn2_Y + 2.0, btnW, btnH, slant);
+      ctx.fill();
+
+      ctx.strokeStyle = `rgba(16, 185, 129, ${isSel2 ? 0.95 : pulse})`;
+      ctx.lineWidth = isSel2 ? 3.0 : 1.5;
+      drawSlantedBox(btnX, btn2_Y, btnW, btnH, slant);
+      ctx.stroke();
+
+      const grad2 = ctx.createLinearGradient(btnX, btn2_Y, btnX, btn2_Y + btnH);
+      if (isSel2) {
+        grad2.addColorStop(0.0, '#A7F3D0');
+        grad2.addColorStop(0.4, '#34D399');
+        grad2.addColorStop(1.0, '#059669');
+      } else {
+        grad2.addColorStop(0.0, '#6EE7B7');
+        grad2.addColorStop(0.5, '#10B981');
+        grad2.addColorStop(1.0, '#047857');
+      }
+      ctx.fillStyle = grad2;
+      drawSlantedBox(btnX, btn2_Y, btnW, btnH, slant);
+      ctx.fill();
+
+      ctx.lineWidth = 1.0;
+      ctx.strokeStyle = isSel2 ? '#FFFFFF' : '#A7F3D0';
+      drawSlantedBox(btnX + 1.0, btn2_Y + 1.0, btnW - 2.0, btnH - 2.0, slant);
+      ctx.stroke();
+
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = '#022C22';
+      drawSlantedBox(btnX, btn2_Y, btnW, btnH, slant);
+      ctx.stroke();
+
+      ctx.font = 'italic 900 9.0px monospace';
+      ctx.fillStyle = '#022C22';
+      ctx.fillText('🌐 ONLINE 2P (BETA)', btnX + btnW / 2 + 2, btn2_Y + btnH / 2 + 0.5);
+
+      if (isSel2 && arrowFlash) {
+        ctx.font = 'bold 8.5px monospace';
+        ctx.fillStyle = '#34D399';
+        ctx.fillText('►', btnX - 7, btn2_Y + btnH / 2);
+        ctx.fillText('◄', btnX + btnW + slant + 5, btn2_Y + btnH / 2);
+      }
+
       // Dica de controle abaixo dos botões
-      const hintY = btn1_Y + btnH + 13;
+      const hintY = btn2_Y + btnH + 10;
       if (this.audio && this.audio.ctx && this.audio.ctx.state !== 'running') {
         const audioPulse = 0.5 + 0.5 * Math.sin(now * 0.008);
         ctx.fillStyle = `rgba(255, 235, 59, ${0.75 + 0.25 * audioPulse})`;
@@ -448,6 +496,159 @@
           const achTxt = `${st.achievements.length}/${ACHIEVEMENTS_LIST.length}`;
           ctx.fillText(`🏆 VITÓRIAS: ${st.wins}  |  PÓDIOS: ${st.podiums}  |  ${st.totalKm} KM  |  TROFÉUS: ${achTxt}`, cx, creditsY - 10);
         }
+      }
+
+      ctx.restore();
+    }
+
+    renderOnlineLobby(ctx) {
+      const L = this.getOnlineLobbyLayout();
+      const cx = INTERNAL_WIDTH / 2;
+      const np = this.netplay;
+      const sub = this.onlineSubMode || 'CHOICE';
+
+      ctx.fillStyle = 'rgba(6, 9, 18, 0.86)';
+      ctx.fillRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT);
+
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#34D399';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText('🌐 MULTIPLAYER ONLINE 2P', cx, 18);
+
+      const drawBtn = (btn, label, bg, border, fg, font = 'bold 7.2px monospace') => {
+        ctx.fillStyle = bg;
+        ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
+        ctx.strokeStyle = border;
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = fg;
+        ctx.font = font;
+        ctx.fillText(label, btn.x + btn.w / 2, btn.y + btn.h / 2 + 2.5);
+      };
+
+      if (sub === 'CHOICE') {
+        ctx.fillStyle = '#CBD5E1';
+        ctx.font = '7px monospace';
+        ctx.fillText('CORRA CONTRA UM AMIGO ONLINE + 18 BOTS', cx, 36);
+
+        drawBtn(L.btnCreate, '🏁 CRIAR SALA (HOST)', '#065F46', '#10B981', '#FFFFFF');
+        drawBtn(L.btnJoin, '🔑 ENTRAR COM CÓDIGO', '#0C4A6E', '#38BDF8', '#FFFFFF');
+
+        if (np && np.errorMsg) {
+          ctx.fillStyle = '#F87171';
+          ctx.font = 'bold 6.8px monospace';
+          ctx.fillText(np.errorMsg, cx, 118);
+        } else {
+          ctx.fillStyle = '#94A3B8';
+          ctx.font = '6.4px monospace';
+          ctx.fillText('1 jogador cria a sala e passa o código de 4 letras ao amigo.', cx, 118);
+        }
+
+        drawBtn(L.btnBack, '◀ VOLTAR', '#1E293B', '#EF4444', '#EF4444');
+        ctx.restore();
+        return;
+      }
+
+      if (sub === 'JOIN_CODE') {
+        ctx.fillStyle = '#38BDF8';
+        ctx.font = 'bold 8.5px monospace';
+        ctx.fillText('DIGITE O CÓDIGO DA SALA (4 LETRAS)', cx, 56);
+
+        if (np && np.errorMsg) {
+          ctx.fillStyle = '#F87171';
+          ctx.font = 'bold 6.8px monospace';
+          ctx.fillText(np.errorMsg, cx, 112);
+        }
+
+        drawBtn(L.btnJoinGo, 'CONECTAR ▶', '#065F46', '#10B981', '#FFFFFF');
+        drawBtn(L.btnBack, '◀ VOLTAR', '#1E293B', '#EF4444', '#EF4444');
+        ctx.restore();
+        return;
+      }
+
+      // sub === 'ROOM'
+      const { boxX, boxY, boxW, boxH } = L;
+      ctx.fillStyle = 'rgba(14, 22, 38, 0.96)';
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+      ctx.strokeStyle = '#34D399';
+      ctx.lineWidth = 1.4;
+      ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+      const meta = (np && np.meta) ? np.meta : {};
+      const isHost = (np && np.role === 'HOST');
+      const code = (np && np.roomCode) ? np.roomCode : '----';
+
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 9.5px monospace';
+      ctx.fillText(`SALA: ${code}   (${isHost ? 'VOCÊ É O HOST' : 'CONVIDADO'})`, cx, boxY + 14);
+
+      // Cards Host vs Convidado
+      const halfW = Math.floor((boxW - 22) / 2);
+      const drawPlayerBox = (px, py, label, pName, carIdx, ready, accent) => {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.fillRect(px, py, halfW, 34);
+        ctx.strokeStyle = ready ? '#10B981' : accent;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(px, py, halfW, 34);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = accent;
+        ctx.font = 'bold 6px monospace';
+        ctx.fillText(label, px + 5, py + 9);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 7px monospace';
+        ctx.fillText(pName || 'AGUARDANDO...', px + 5, py + 20);
+        const carObj = CAR_MODELS[carIdx || 0] || CAR_MODELS[0];
+        ctx.fillStyle = ready ? '#34D399' : '#94A3B8';
+        ctx.font = '5.8px monospace';
+        ctx.fillText(pName ? `${carObj.name} • ${ready ? 'PRONTO' : 'ESCOLHENDO'}` : 'Passe o código da sala', px + 5, py + 30);
+      };
+
+      drawPlayerBox(boxX + 8, boxY + 22, 'HOST (P19)', meta.hostName || 'HOST', meta.hostCarIndex || 0, !!meta.hostReady, '#FFD700');
+      drawPlayerBox(boxX + boxW - 8 - halfW, boxY + 22, 'AMIGO (P20)', meta.guestName || '', meta.guestCarIndex || 0, !!meta.guestReady, '#38BDF8');
+
+      // Seleção de carro e cor do jogador local
+      const myCar = CAR_MODELS[this.selectedCarIndex] || CAR_MODELS[0];
+      drawBtn(L.btnCarPrev, '◀', '#1E293B', '#38BDF8', '#FFFFFF');
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.fillRect(L.btnCarPrev.x + 20, L.btnCarPrev.y, 120, 16);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 6.4px monospace';
+      ctx.fillText(myCar.name, L.btnCarPrev.x + 80, L.btnCarPrev.y + 10.5);
+      drawBtn(L.btnCarNext, '▶', '#1E293B', '#38BDF8', '#FFFFFF');
+      drawBtn(L.btnColNext, 'COR 🎨', '#1E293B', '#F59E0B', '#FDE68A', 'bold 6px monospace');
+
+      // Seleção de pista e clima (Host controla)
+      const tIdx = (meta.trackIndex !== undefined) ? meta.trackIndex : 0;
+      const tDef = TRACK_DEFINITIONS[tIdx] || TRACK_DEFINITIONS[0];
+      const env = meta.envCond || 'DIA';
+      if (isHost) {
+        drawBtn(L.btnTrkPrev, '◀', '#1E293B', '#FFD700', '#FFFFFF');
+        drawBtn(L.btnTrkNext, '▶', '#1E293B', '#FFD700', '#FFFFFF');
+        drawBtn(L.btnEnvNext, `CLIMA: ${env}`, '#1E293B', '#38BDF8', '#E0F2FE', 'bold 5.8px monospace');
+      }
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.fillRect(L.btnTrkPrev.x + 20, L.btnTrkPrev.y, 160, 16);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 6.2px monospace';
+      ctx.fillText(`PISTA: ${tDef.name}`, L.btnTrkPrev.x + 100, L.btnTrkPrev.y + 10.5);
+      if (!isHost) {
+        ctx.fillStyle = '#94A3B8';
+        ctx.font = '5.8px monospace';
+        ctx.fillText(`CLIMA: ${env}`, L.btnEnvNext.x + L.btnEnvNext.w / 2, L.btnEnvNext.y + 10.5);
+      }
+
+      // Botão Pronto / Iniciar
+      const myReady = isHost ? !!meta.hostReady : !!meta.guestReady;
+      drawBtn(L.btnReady, myReady ? '✓ ESTOU PRONTO' : 'MARCAR PRONTO', myReady ? '#065F46' : '#1E293B', myReady ? '#10B981' : '#F59E0B', '#FFFFFF');
+
+      drawBtn(L.btnBack, '◀ SAIR DA SALA', '#1E293B', '#EF4444', '#EF4444', 'bold 6.5px monospace');
+      if (isHost) {
+        const canStart = !!(meta.guestName && meta.hostReady && meta.guestReady);
+        drawBtn(L.btnStart, canStart ? '🏁 LARGAR AGORA ▶' : 'AGUARDANDO AMIGO', canStart ? '#065F46' : '#1E293B', canStart ? '#10B981' : '#475569', canStart ? '#FFFFFF' : '#94A3B8', 'bold 6.5px monospace');
       }
 
       ctx.restore();

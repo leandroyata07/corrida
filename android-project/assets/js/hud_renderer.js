@@ -916,6 +916,33 @@
       return { touchSafe, chips: base.chips, bX, bY, bW, bH, btnRandom, btnClear, btnBack, btnConfirm };
     }
 
+    getOnlineLobbyLayout() {
+      const touchSafe = this.input.touchControlsVisible;
+      const W = INTERNAL_WIDTH;
+      const cx = W / 2;
+      const boxW = touchSafe ? 320 : 340;
+      const boxX = Math.round(cx - boxW / 2);
+      const boxY = touchSafe ? 28 : 30;
+      const boxH = touchSafe ? 132 : 142;
+
+      return {
+        touchSafe,
+        boxX, boxY, boxW, boxH,
+        btnCreate: { x: Math.round(cx - 140), y: 58, w: 132, h: 36 },
+        btnJoin:   { x: Math.round(cx + 8),   y: 58, w: 132, h: 36 },
+        btnJoinGo: { x: Math.round(cx - 60),  y: 126, w: 120, h: 22 },
+        btnCarPrev:  { x: boxX + 8,   y: boxY + 64, w: 18, h: 16 },
+        btnCarNext:  { x: boxX + 150, y: boxY + 64, w: 18, h: 16 },
+        btnColNext:  { x: boxX + 174, y: boxY + 64, w: 54, h: 16 },
+        btnTrkPrev:  { x: boxX + 8,   y: boxY + 86, w: 18, h: 16 },
+        btnTrkNext:  { x: boxX + 190, y: boxY + 86, w: 18, h: 16 },
+        btnEnvNext:  { x: boxX + 214, y: boxY + 86, w: boxW - 222, h: 16 },
+        btnReady:    { x: Math.round(cx - 70), y: boxY + boxH - 26, w: 140, h: 20 },
+        btnStart:    { x: boxX + boxW - 126, y: boxY + boxH + 6, w: 126, h: 19 },
+        btnBack:     { x: boxX, y: boxY + boxH + 6, w: 108, h: 19 }
+      };
+    }
+
     // Geometria da tela "Escolha de Pista" (4 Clássicas + 27 Capitais do Brasil)
     getTrackSelectLayout() {
       const touchSafe = this.input.touchControlsVisible;
