@@ -879,6 +879,12 @@
       const totalW = cardW * 3 + gap * 2;
       const startX = Math.round((INTERNAL_WIDTH - totalW) / 2);
       const card0 = { x: startX, y: cardY, w: cardW, h: cardH };
+      const btnChampType = {
+        x: card0.x + 6,
+        y: card0.y + card0.h - 29,
+        w: card0.w - 12,
+        h: 13
+      };
       const card1 = { x: startX + cardW + gap, y: cardY, w: cardW, h: cardH };
       const card2 = { x: startX + (cardW + gap) * 2, y: cardY, w: cardW, h: cardH };
       const btnW = touchSafe ? 86 : 98;
@@ -886,7 +892,28 @@
       const btnY = touchSafe ? 168 : 184;
       const btnBack = { x: startX, y: btnY, w: btnW, h: btnH };
       const btnConfirm = { x: startX + totalW - btnW, y: btnY, w: btnW, h: btnH };
-      return { touchSafe, cardW, cardH, cardY, card0, card1, card2, btnBack, btnConfirm };
+      return { touchSafe, cardW, cardH, cardY, card0, btnChampType, card1, card2, btnBack, btnConfirm };
+    }
+
+    // Geometria da tela "Montar Campeonato Customizado"
+    getCustomScheduleLayout() {
+      const base = this.getTrackSelectLayout();
+      const touchSafe = base.touchSafe;
+      const bX = base.bX;
+      const bW = base.bW;
+      const bY = base.bY;
+      const bH = touchSafe ? 88 : 96;
+      const actY = bY + bH + 3;
+      const actH = touchSafe ? 14 : 15;
+      const actW = Math.floor((bW - 8) / 2);
+      const btnRandom = { x: bX, y: actY, w: actW, h: actH };
+      const btnClear = { x: bX + bW - actW, y: actY, w: actW, h: actH };
+      const btnY = actY + actH + 3;
+      const btnH = touchSafe ? 16 : 18;
+      const btnW = touchSafe ? 104 : 120;
+      const btnBack = { x: bX, y: btnY, w: btnW, h: btnH };
+      const btnConfirm = { x: bX + bW - btnW, y: btnY, w: btnW, h: btnH };
+      return { touchSafe, chips: base.chips, bX, bY, bW, bH, btnRandom, btnClear, btnBack, btnConfirm };
     }
 
     // Geometria da tela "Escolha de Pista" (4 Clássicas + 27 Capitais do Brasil)

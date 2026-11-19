@@ -1987,21 +1987,27 @@ const MonumentArt = {
   },
 
   drawArcadeCloud(ctx, x, y, w, h, topCol, botCol) {
-    // Nuvem estilo arcade 16-bit com base plana atmosférica e volumes iluminados no topo
-    ctx.fillStyle = botCol;
-    ctx.fillRect(x - w * 0.48, y - h * 0.28, w * 0.96, h * 0.28);
-    ctx.beginPath();
-    ctx.arc(x - w * 0.30, y - h * 0.22, h * 0.32, Math.PI, 0, false);
-    ctx.arc(x - w * 0.06, y - h * 0.34, h * 0.46, Math.PI, 0, false);
-    ctx.arc(x + w * 0.20, y - h * 0.26, h * 0.36, Math.PI, 0, false);
-    ctx.arc(x + w * 0.38, y - h * 0.16, h * 0.22, Math.PI, 0, false);
-    ctx.fill();
+    // Nuvem fofa com silhueta unificada (sem barra reta nem sobreposição de transparência)
+    const grad = ctx.createLinearGradient(x, y - h * 0.95, x, y + h * 0.15);
+    grad.addColorStop(0, topCol);
+    grad.addColorStop(0.62, topCol);
+    grad.addColorStop(1, botCol);
 
-    ctx.fillStyle = topCol;
+    const puffs = [
+      [x,            y - h * 0.16, w * 0.44, h * 0.24],
+      [x - w * 0.30, y - h * 0.24, w * 0.20, h * 0.26],
+      [x - w * 0.10, y - h * 0.46, w * 0.24, h * 0.40],
+      [x + w * 0.14, y - h * 0.36, w * 0.22, h * 0.32],
+      [x + w * 0.33, y - h * 0.20, w * 0.16, h * 0.20]
+    ];
+
+    ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(x - w * 0.28, y - h * 0.28, h * 0.26, Math.PI, 0, false);
-    ctx.arc(x - w * 0.06, y - h * 0.40, h * 0.40, Math.PI, 0, false);
-    ctx.arc(x + w * 0.18, y - h * 0.31, h * 0.30, Math.PI, 0, false);
+    for (let i = 0; i < puffs.length; i++) {
+      const [px, py, rx, ry] = puffs[i];
+      ctx.moveTo(px + rx, py);
+      ctx.ellipse(px, py, rx, ry, 0, 0, Math.PI * 2);
+    }
     ctx.fill();
   },
 
@@ -2023,12 +2029,12 @@ const MonumentArt = {
     // =========================================================================
     // Camada 0 (0.04x): Nuvens cúmulus estilizadas em camadas
     const cloudShift = ((scroll * 0.04 + curveShift * 0.12) % PW + PW) % PW;
-    const cloudTop = isNight
-      ? 'rgba(38, 58, 96, 0.55)'
-      : (isDusk ? 'rgba(255, 190, 120, 0.70)' : 'rgba(255, 255, 255, 0.78)');
-    const cloudBot = isNight
-      ? 'rgba(18, 28, 52, 0.50)'
-      : (isDusk ? 'rgba(148, 56, 78, 0.62)' : 'rgba(186, 214, 245, 0.70)');
+    const cloudTop = (E && E.css && E.css.cloudTop)
+      ? E.css.cloudTop
+      : (isNight ? '#1B2742' : (isDusk ? '#732648' : '#FFFFFF'));
+    const cloudBot = (E && E.css && E.css.cloudBot)
+      ? E.css.cloudBot
+      : (isNight ? '#0E1630' : (isDusk ? '#FFA260' : '#D0E5FF'));
     for (let tile = -1; tile <= 1; tile++) {
       const cx0 = tile * PW - cloudShift;
       if (cx0 + PW < -40 || cx0 > INTERNAL_WIDTH + 40) continue;

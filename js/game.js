@@ -11,7 +11,7 @@
       this.input = new InputManager(
         () => {
           if (this.audio) {
-            const isMenuState = (this.state === 'MENU' || this.state === 'MODE_SELECT' || this.state === 'DIFFICULTY_SELECT' || this.state === 'TRACK_SELECT' || this.state === 'CAR_SELECT' || this.state === 'COLOR_SELECT' || this.state === 'NAME_INPUT' || this.state === 'SEASON_UPGRADES');
+            const isMenuState = (this.state === 'MENU' || this.state === 'MODE_SELECT' || this.state === 'DIFFICULTY_SELECT' || this.state === 'TRACK_SELECT' || this.state === 'CUSTOM_SCHEDULE_SELECT' || this.state === 'CAR_SELECT' || this.state === 'COLOR_SELECT' || this.state === 'NAME_INPUT' || this.state === 'SEASON_UPGRADES');
             this.audio.unlockAudio(isMenuState);
           }
         },
@@ -281,6 +281,10 @@
       this.initSeasonRoster();
 
       this.gameMode = 'CHAMPIONSHIP'; // 'CHAMPIONSHIP' ou 'QUICK_RACE'
+      this.customChampionship = false;
+      this.customSchedule = [];
+      this.customCursorIndex = 0;
+      this.customScheduleWarnTimer = 0;
       this.selectedModeIndex = 0;     // 0: Campeonato F1, 1: Corrida Rápida
       this.selectedQuickTrackIndex = 0; // 0: Brasil GP, 1: Serra, 2: Noite
       this.seasonSchedule = [];
@@ -563,6 +567,7 @@
       const data = {
         playerName: this.playerName || 'JOGADOR',
         gameMode: this.gameMode,
+        isCustomChampionship: !!this.customChampionship,
         difficulty: this.diffMode,
         selectedCarIndex: this.selectedCarIndex,
         colorIndex: this.colorIndex,
@@ -594,6 +599,9 @@
       this.seasonSchedule = (slotData.seasonSchedule && slotData.seasonSchedule.length > 0)
         ? [...slotData.seasonSchedule]
         : this.getChampionshipSchedule();
+      this.customChampionship = (slotData.isCustomChampionship !== undefined)
+        ? !!slotData.isCustomChampionship
+        : (this.seasonSchedule.length < TRACK_DEFINITIONS.length);
       this.championshipPoints = (slotData.championshipPoints && slotData.championshipPoints.length > 0)
         ? [...slotData.championshipPoints]
         : new Array(TOTAL_RACERS).fill(0);
@@ -752,6 +760,30 @@
         schedule.push(spIndex);
       }
       return schedule;
+    }
+
+    getChampionshipPrizeMultiplier() {
+      const total = TRACK_DEFINITIONS.length;
+      const stages = (this.seasonSchedule && this.seasonSchedule.length > 0) ? this.seasonSchedule.length : total;
+      if (stages >= total) return 1;
+      return Math.min(3, Math.max(1, +(Math.sqrt(total / stages)).toFixed(2)));
+    }
+
+    startNewChampionshipInSlot(slotNum) {
+      this.activeSaveSlot = slotNum;
+      if (this.customChampionship) {
+        if (!Array.isArray(this.customSchedule)) this.customSchedule = [];
+        this.customCursorIndex = 0;
+        this.customScheduleWarnTimer = 0;
+        this.fadeTransition('CUSTOM_SCHEDULE_SELECT');
+        return;
+      }
+      this.seasonSchedule = this.getChampionshipSchedule();
+      this.seasonStage = 0;
+      this.trackIndex = this.seasonSchedule[0];
+      this.loadTrack(this.trackIndex);
+      this.colorIndex = MODEL_DEFAULT_COLOR[CAR_MODELS[this.selectedCarIndex].id] || 0;
+      this.fadeTransition('CAR_SELECT');
     }
 
     loadTrack(index) {
@@ -1211,9 +1243,16 @@
             return;
           }
 
-          // Clique no card 0 (Campeonato) — seleciona sem avançar
-          if (click.x >= L.card0.x && click.x <= L.card0.x + L.card0.w &&
+          // Clique no toggle Oficial vs Custom dentro do card 0
+          if (L.btnChampType &&
+              click.x >= L.btnChampType.x && click.x <= L.btnChampType.x + L.btnChampType.w &&
+              click.y >= L.btnChampType.y && click.y <= L.btnChampType.y + L.btnChampType.h) {
+            this.selectedModeIndex = 0;
+            this.customChampionship = !this.customChampionship;
+            this.audio.playBeep(523, 0.07);
+          } else if (click.x >= L.card0.x && click.x <= L.card0.x + L.card0.w &&
               click.y >= L.card0.y && click.y <= L.card0.y + L.card0.h) {
+            // Clique no card 0 (Campeonato) — seleciona sem avançar
             this.selectedModeIndex = 0;
             this.audio.playBeep(440, 0.06);
           }
@@ -1243,9 +1282,18 @@
           this.selectedModeIndex = (this.selectedModeIndex - 1 + 3) % 3;
           this.audio.playBeep(440, 0.05);
         }
-        if (this.input.justPressedRight || this.input.justPressedUp || this.input.justPressedDown) {
+        if (this.input.justPressedRight) {
           this.selectedModeIndex = (this.selectedModeIndex + 1) % 3;
           this.audio.playBeep(440, 0.05);
+        }
+        if (this.input.justPressedUp || this.input.justPressedDown) {
+          if (this.selectedModeIndex === 0) {
+            this.customChampionship = !this.customChampionship;
+            this.audio.playBeep(523, 0.06);
+          } else {
+            this.selectedModeIndex = (this.selectedModeIndex + 1) % 3;
+            this.audio.playBeep(440, 0.05);
+          }
         }
 
         if (this.input.justPressedEnter) {
@@ -1469,6 +1517,144 @@
         return;
       }
 
+      if (this.state === 'CUSTOM_SCHEDULE_SELECT') {
+        if (this.nameWrapper) this.nameWrapper.classList.remove('show');
+        this.audio.silenceEffects();
+        this.menuCameraZ = this.wrapZ(this.menuCameraZ + 850 * dt);
+        this.cameraRoll = 0;
+        this.shake = 0;
+        this.updateSkyScroll(dt);
+        this.updateEnv(dt);
+        if (this.customScheduleWarnTimer > 0) {
+          this.customScheduleWarnTimer = Math.max(0, this.customScheduleWarnTimer - dt);
+        }
+
+        const L = this.getCustomScheduleLayout();
+        const toggleTrack = (idx) => {
+          const pos = this.customSchedule.indexOf(idx);
+          if (pos !== -1) {
+            this.customSchedule.splice(pos, 1);
+            this.audio.playBeep(360, 0.05);
+          } else if (this.customSchedule.length < TRACK_DEFINITIONS.length) {
+            this.customSchedule.push(idx);
+            this.audio.playBeep(523, 0.06);
+          }
+        };
+
+        if (this.input.lastCanvasClick) {
+          const click = this.input.lastCanvasClick;
+          this.input.lastCanvasClick = null;
+
+          if (L.btnBack && click.x >= L.btnBack.x && click.x <= L.btnBack.x + L.btnBack.w &&
+              click.y >= L.btnBack.y && click.y <= L.btnBack.y + L.btnBack.h) {
+            this.audio.playBeep(330, 0.06);
+            this.slotSelectMode = 'NEW';
+            this.fadeTransition('SLOT_SELECT');
+            this.input.clearPulses();
+            return;
+          }
+
+          if (L.btnConfirm && click.x >= L.btnConfirm.x && click.x <= L.btnConfirm.x + L.btnConfirm.w &&
+              click.y >= L.btnConfirm.y && click.y <= L.btnConfirm.y + L.btnConfirm.h) {
+            this.input.justPressedEnter = true;
+          }
+
+          if (L.btnRandom && click.x >= L.btnRandom.x && click.x <= L.btnRandom.x + L.btnRandom.w &&
+              click.y >= L.btnRandom.y && click.y <= L.btnRandom.y + L.btnRandom.h) {
+            const pool = Array.from({ length: TRACK_DEFINITIONS.length }, (_, i) => i);
+            for (let i = pool.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
+            this.customSchedule = pool.slice(0, 10);
+            this.customScheduleWarnTimer = 0;
+            this.audio.playBeep(587, 0.08);
+            this.input.clearPulses();
+            return;
+          }
+
+          if (L.btnClear && click.x >= L.btnClear.x && click.x <= L.btnClear.x + L.btnClear.w &&
+              click.y >= L.btnClear.y && click.y <= L.btnClear.y + L.btnClear.h) {
+            this.customSchedule = [];
+            this.audio.playBeep(300, 0.07);
+            this.input.clearPulses();
+            return;
+          }
+
+          if (L.chips) {
+            for (let c = 0; c < L.chips.length; c++) {
+              const chip = L.chips[c];
+              if (click.x >= chip.x && click.x <= chip.x + chip.w &&
+                  click.y >= chip.y && click.y <= chip.y + chip.h) {
+                this.customCursorIndex = chip.i;
+                toggleTrack(chip.i);
+                this.customScheduleWarnTimer = 0;
+                this.input.clearPulses();
+                return;
+              }
+            }
+          }
+        }
+
+        if (this.input.justPressedLeft) {
+          this.customCursorIndex = (this.customCursorIndex - 1 + TRACK_DEFINITIONS.length) % TRACK_DEFINITIONS.length;
+          this.audio.playBeep(330, 0.04);
+        }
+        if (this.input.justPressedRight) {
+          this.customCursorIndex = (this.customCursorIndex + 1) % TRACK_DEFINITIONS.length;
+          this.audio.playBeep(330, 0.04);
+        }
+        if (this.input.justPressedUp) {
+          if (this.customCursorIndex < 4) {
+            this.customCursorIndex = Math.min(TRACK_DEFINITIONS.length - 1, 22 + this.customCursorIndex);
+          } else if (this.customCursorIndex < 13) {
+            this.customCursorIndex = Math.min(3, Math.floor((this.customCursorIndex - 4) / 2.3));
+          } else {
+            this.customCursorIndex -= 9;
+          }
+          this.audio.playBeep(330, 0.04);
+        }
+        if (this.input.justPressedDown) {
+          if (this.customCursorIndex < 4) {
+            this.customCursorIndex = 4 + Math.min(8, this.customCursorIndex * 2);
+          } else if (this.customCursorIndex < 22) {
+            this.customCursorIndex = Math.min(TRACK_DEFINITIONS.length - 1, this.customCursorIndex + 9);
+          } else {
+            this.customCursorIndex = Math.min(3, Math.floor((this.customCursorIndex - 22) / 2.3));
+          }
+          this.audio.playBeep(330, 0.04);
+        }
+        if (this.input.justPressedSpace) {
+          toggleTrack(this.customCursorIndex);
+          this.customScheduleWarnTimer = 0;
+        }
+
+        if (this.input.justPressedEnter) {
+          if (this.customSchedule.length >= 5) {
+            this.audio.playBeep(523, 0.12);
+            this.seasonSchedule = [...this.customSchedule];
+            this.seasonStage = 0;
+            this.trackIndex = this.seasonSchedule[0];
+            this.loadTrack(this.trackIndex);
+            this.colorIndex = MODEL_DEFAULT_COLOR[CAR_MODELS[this.selectedCarIndex].id] || 0;
+            this.fadeTransition('CAR_SELECT');
+          } else {
+            this.audio.playBeep(220, 0.14);
+            this.customScheduleWarnTimer = 1.8;
+          }
+          this.input.clearPulses();
+          return;
+        }
+
+        if (this.input.justPressedEsc) {
+          this.audio.playBeep(330, 0.06);
+          this.slotSelectMode = 'NEW';
+          this.fadeTransition('SLOT_SELECT');
+        }
+        this.input.clearPulses();
+        return;
+      }
+
       if (this.state === 'CAR_SELECT') {
         if (this.nameWrapper) this.nameWrapper.classList.remove('show');
         this.audio.silenceEffects();
@@ -1488,7 +1674,7 @@
           if (btnBack && click.x >= btnBack.x && click.x <= btnBack.x + btnBack.w &&
               click.y >= btnBack.y && click.y <= btnBack.y + btnBack.h) {
             this.audio.playBeep(330, 0.06);
-            this.fadeTransition((this.gameMode === 'QUICK_RACE') ? 'TRACK_SELECT' : 'DIFFICULTY_SELECT');
+            this.fadeTransition((this.gameMode === 'QUICK_RACE' || this.gameMode === 'TIME_TRIAL') ? 'TRACK_SELECT' : (this.customChampionship ? 'CUSTOM_SCHEDULE_SELECT' : 'DIFFICULTY_SELECT'));
             this.input.clearPulses();
             return;
           }
@@ -1554,7 +1740,7 @@
         }
         if (this.input.justPressedEsc) {
           this.audio.playBeep(330, 0.06);
-          this.fadeTransition((this.gameMode === 'QUICK_RACE') ? 'TRACK_SELECT' : 'DIFFICULTY_SELECT');
+          this.fadeTransition((this.gameMode === 'QUICK_RACE' || this.gameMode === 'TIME_TRIAL') ? 'TRACK_SELECT' : (this.customChampionship ? 'CUSTOM_SCHEDULE_SELECT' : 'DIFFICULTY_SELECT'));
         }
         this.input.clearPulses();
         return;
@@ -2221,15 +2407,9 @@
             const mY = Math.round(cy - 75 / 2);
             if (click.x >= cx - 92 && click.x <= cx - 6 && click.y >= mY + 44 && click.y <= mY + 62) {
               SaveManager.deleteSlot(slotNum);
-              this.activeSaveSlot = slotNum;
               this.slotOverwriteConfirm = null;
               this.audio.playBeep(523, 0.12);
-              this.seasonSchedule = this.getChampionshipSchedule();
-              this.seasonStage = 0;
-              this.trackIndex = this.seasonSchedule[0];
-              this.loadTrack(this.trackIndex);
-              this.colorIndex = MODEL_DEFAULT_COLOR[CAR_MODELS[this.selectedCarIndex].id] || 0;
-              this.fadeTransition('CAR_SELECT');
+              this.startNewChampionshipInSlot(slotNum);
               this.input.clearPulses();
               return;
             }
@@ -2300,14 +2480,8 @@
                   this.slotOverwriteConfirm = slotNum;
                   this.audio.playBeep(440, 0.08);
                 } else {
-                  this.activeSaveSlot = slotNum;
                   this.audio.playBeep(523, 0.12);
-                  this.seasonSchedule = this.getChampionshipSchedule();
-                  this.seasonStage = 0;
-                  this.trackIndex = this.seasonSchedule[0];
-                  this.loadTrack(this.trackIndex);
-                  this.colorIndex = MODEL_DEFAULT_COLOR[CAR_MODELS[this.selectedCarIndex].id] || 0;
-                  this.fadeTransition('CAR_SELECT');
+                  this.startNewChampionshipInSlot(slotNum);
                 }
               }
               this.input.clearPulses();
@@ -2339,14 +2513,8 @@
               this.slotOverwriteConfirm = slotNum;
               this.audio.playBeep(440, 0.08);
             } else {
-              this.activeSaveSlot = slotNum;
               this.audio.playBeep(523, 0.12);
-              this.seasonSchedule = this.getChampionshipSchedule();
-              this.seasonStage = 0;
-              this.trackIndex = this.seasonSchedule[0];
-              this.loadTrack(this.trackIndex);
-              this.colorIndex = MODEL_DEFAULT_COLOR[CAR_MODELS[this.selectedCarIndex].id] || 0;
-              this.fadeTransition('CAR_SELECT');
+              this.startNewChampionshipInSlot(slotNum);
             }
           }
           this.input.clearPulses();
@@ -3643,29 +3811,19 @@
       const ranked = this.getRankedCars();
       this.lastRacePositions = ranked;
 
+      let playerFinishPos = -1;
+      let playerCarRef = null;
       for (let pos = 0; pos < ranked.length; pos++) {
         const car = ranked[pos];
         const pts = (pos < F1_POINTS.length) ? F1_POINTS[pos] : 0;
         car.racePos = pos + 1;
         car.racePoints = pts;
         if (car.isPlayer) {
+          playerFinishPos = pos;
+          playerCarRef = car;
           const curTrack = TRACK_DEFINITIONS[this.trackIndex];
           if (curTrack && typeof TrackRecords !== 'undefined') {
             TrackRecords.update(curTrack.id, this.bestLapTime, pos + 1);
-          }
-          if (typeof CareerStats !== 'undefined') {
-            const isRain = !!(this.envCur && this.envCur.s && this.envCur.s.rain > 0.25);
-            const km = (this.track ? (this.track.totalLength / 1000) * TOTAL_LAPS : 0);
-            const isChampWin = (this.gameMode === 'CHAMPIONSHIP' && this.seasonStage >= (this.seasonSchedule.length - 1) && pos === 0);
-            const res = CareerStats.recordRace({
-              rank: pos + 1,
-              km,
-              isRain,
-              startPos: (this.qualifiedGridPos > 0 ? this.qualifiedGridPos : 20),
-              carId: car.model ? car.model.id : '',
-              isChampion: isChampWin
-            });
-            this.newlyUnlockedAchievements = res.newlyUnlocked || [];
           }
         }
         if (this.gameMode === 'CHAMPIONSHIP') {
@@ -3678,10 +3836,33 @@
             else if (pRank === 3) prize = 6000;
             else if (pRank <= 6) prize = 4000;
             else if (pRank <= 10) prize = 2500;
+            const mult = this.getChampionshipPrizeMultiplier();
+            prize = Math.round((prize * mult) / 100) * 100;
             this.lastPrizeMoney = prize;
             this.playerCredits = (this.playerCredits || 0) + prize;
           }
         }
+      }
+      if (playerCarRef && typeof CareerStats !== 'undefined') {
+        const isRain = !!(this.envCur && this.envCur.s && this.envCur.s.rain > 0.25);
+        const km = (this.track ? (this.track.totalLength / 1000) * TOTAL_LAPS : 0);
+        let isChampWin = false;
+        if (this.gameMode === 'CHAMPIONSHIP' && this.seasonSchedule && this.seasonSchedule.length > 0 && this.seasonStage >= (this.seasonSchedule.length - 1)) {
+          const overall = this.cars.map(c => ({
+            car: c,
+            points: this.championshipPoints[c.id] || 0
+          })).sort((a, b) => b.points - a.points);
+          isChampWin = !!(overall[0] && overall[0].car && overall[0].car.isPlayer);
+        }
+        const res = CareerStats.recordRace({
+          rank: playerFinishPos + 1,
+          km,
+          isRain,
+          startPos: (this.qualifiedGridPos > 0 ? this.qualifiedGridPos : 20),
+          carId: playerCarRef.model ? playerCarRef.model.id : '',
+          isChampion: isChampWin
+        });
+        this.newlyUnlockedAchievements = res.newlyUnlocked || [];
       }
     }
 
@@ -3939,6 +4120,8 @@
         this.renderModeSelect(ctx);
       } else if (this.state === 'TRACK_SELECT') {
         this.renderTrackSelect(ctx);
+      } else if (this.state === 'CUSTOM_SCHEDULE_SELECT') {
+        this.renderCustomScheduleSelect(ctx);
       } else if (this.state === 'CAR_SELECT') {
         this.renderCarSelect(ctx);
       } else if (this.state === 'COLOR_SELECT') {

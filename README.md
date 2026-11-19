@@ -1,20 +1,20 @@
 # 🏎️ LH44 — Low to High Speed
 
-**LH44** é um jogo arcade de corrida retrô em perspectiva pseudo-3D (estilo clássico *Top Gear*, *OutRun* e *Horizon Chase*), desenvolvido com gráficos vetoriais de alta precisão em Canvas HTML5, áudio sintetizado via Web Audio API e suporte multiplataforma (Web e Android APK).
+**LH44** é um jogo arcade de corrida retrô em perspectiva pseudo-3D (estilo clássico *Top Gear*, *OutRun* e *Horizon Chase*), desenvolvido com gráficos vetoriais de alta precisão em Canvas HTML5 (`384×216` escalado), áudio sintetizado via Web Audio API, suporte offline (PWA/Service Worker) e versão nativa para Android (WebView/APK).
 
 ---
 
 ## 📌 Sumário
 1. [Visão Geral](#-visão-geral)
-2. [Modos de Jogo e Dificuldade](#-modos-de-jogo-e-dificuldade)
+2. [Modos de Jogo, Qualy e Dificuldade](#-modos-de-jogo-qualy-e-dificuldade)
 3. [Os 20 Carros Brasileiros](#-os-20-carros-brasileiros)
-4. [Sistema de Upgrades & Economia](#-sistema-de-upgrades--economia)
-5. [Física de Pilotagem e Controles](#-física-de-pilotagem-e-controles)
+4. [Sistema de Upgrades, Economia e Conquistas](#-sistema-de-upgrades-economia-e-conquistas)
+5. [Física de Pilotagem, Câmbio e Controles](#-física-de-pilotagem-câmbio-e-controles)
 6. [As 31 Pistas do Campeonato](#-as-31-pistas-do-campeonato)
-7. [Sistema de Clima e Horários Dinâmicos](#️-sistema-de-clima-e-horários-dinâmicos)
+7. [Sistema de Clima, Horários Dinâmicos e Cenários](#️-sistema-de-clima-horários-dinâmicos-e-cenários)
 8. [Pilotos da IA e Personalidades](#-pilotos-da-ia-e-personalidades)
-9. [Tecnologia e Arquitetura do Projeto](#-tecnologia-e-arquitetura-do-projeto)
-10. [Como Jogar e Compilar](#-como-jogar-e-compilar)
+9. [Arquitetura e Módulos do Projeto](#-arquitetura-e-módulos-do-projeto)
+10. [Como Jogar, Testar e Compilar](#-como-jogar-testar-e-compilar)
 
 ---
 
@@ -22,33 +22,45 @@
 
 No LH44, o jogador assume o papel de um piloto brasileiro enfrentando 19 rivais inspirados nas maiores lendas da Fórmula 1 (como Ayrton Senna, Lewis Hamilton, Michael Schumacher e Max Verstappen) a bordo dos carros mais icônicos do Brasil — desde o lendário **Fusca 1300** e a **Kombi Corujinha** até o bólido supremo da firma: o **Uno Mille com Escadinha**.
 
+O jogo conta com HUD completo em tempo real (velocímetro, conta-giros, marcha, barras de nitro, minimapa da pista, posição atual e diferença de tempo para os carros à frente e atrás), além de tela de preparação pré-corrida (`RACE_SETUP`) com escolha de **clima/horário**, **trilha sonora** e **classificação (Qualy)**.
+
 ---
 
-## 🏁 Modos de Jogo e Dificuldade
+## 🏁 Modos de Jogo, Qualy e Dificuldade
 
-### 1. Campeonato por Temporadas (Season Mode)
-* **31 Etapas:** O campeonato percorre os 26 estados do Brasil + Distrito Federal e 4 circuitos especiais.
-* **Sistema de Pontuação da F1:** 25, 18, 15, 12, 10, 8, 6, 4, 2, 1 pontos (P1 ao P10).
-* **Grid de Largada:** O jogador sempre larga em último lugar (**P20**) e precisa escalar o pelotão com ultrapassagens precisas e gestão do Nitro.
-* **Oficina entre Corridas:** A premiação em dinheiro acumulada permite comprar melhorias mecânicas.
+### 1. Campeonato F1 Oficial (Season Mode)
+* **31 Etapas:** O campeonato completo percorre os 26 estados do Brasil + Distrito Federal e 4 circuitos clássicos, com grande final em **São Paulo (SP)**.
+* **Sistema de Pontuação Oficial da F1:** 25, 18, 15, 12, 10, 8, 6, 4, 2, 1 pontos (P1 ao P10).
+* **3 Slots de Salvamento (`SaveManager`):** Salva progresso, pontuação, grid dos bots, créditos, upgrades, carro, cor e escolha climática em `localStorage`.
+* **Oficina entre Corridas & Zeramento:** No modo Normal, os créditos acumulados permitem comprar melhorias mecânicas entre etapas. Ao concluir a última etapa, o jogo exibe o pódio final do campeonato (`CHAMPIONSHIP_RESULT`) e a cena de encerramento (`ENDING_SCENE`) com fogos, confetes e música comemorativa.
 
-### 2. Corrida Rápida (Quick Race)
-* Escolha livre de pista, condições climáticas (Dia, Tarde, Noite, Chuva, Neve) e número de voltas para disputas imediatas.
+### 2. Campeonato Customizado
+* Ativado diretamente no card **CAMPEONATO F1** (`◀ OFICIAL (31) ▶` / `◀ CUSTOM (5-31) ▶`).
+* **Calendário Livre:** O jogador escolhe entre **5 e 31 pistas** disponíveis, entrando exatamente na **ordem em que forem selecionadas** (com atalhos para **Aleatório 10** e **Limpar Tudo**).
+* **Progressão Completa:** Mantém salvamento nos 3 slots, modo Qualy, upgrades entre corridas (com premiação escalonada automaticamente conforme o número de etapas), disputa de pontos e cena de zeramento ao final da última pista escolhida.
 
-### 3. Níveis de Dificuldade
+### 3. Modo Qualy (Classificação Pré-Corrida)
+* Na tela de preparação (`RACE_SETUP`), após definir clima/horário e música, o jogador pode optar por disputar o **Qualy** (1 volta rápida cronometrada para definir sua posição real no grid de largada) ou largar diretamente em **P20**.
+
+### 4. Corrida Rápida (Quick Race)
+* Escolha livre de qualquer um dos 31 circuitos, condição climática/horário, música, Qualy e suporte opcional ao **Modo Espelho** (traçado invertido).
+
+### 5. Time Trial (Contra o Relógio)
+* Pista 100% livre para busca da volta perfeita, com **Carro Fantasma** reproduzindo a sua melhor volta registrada naquele circuito e suporte opcional ao **Modo Espelho**.
+
+### 6. Níveis de Dificuldade
 * **Modo Normal:**
-  * Modo carreira completo com economia e upgrades na oficina.
-  * Os carros possuem suas velocidades de fábrica balanceadas, e o jogador evolui seu veículo etapa a etapa.
+  * Modo carreira completo com premiação em créditos e oficina de upgrades.
+  * Os carros possuem suas características de fábrica balanceadas, evoluindo etapa a etapa.
 * **Modo Avançado:**
-  * Foco puramente em pilotagem competitiva no limite.
-  * Todos os carros correm rigorosamente nivelados a **280 km/h** de velocidade máxima.
-  * Desativa upgrades e prêmios em dinheiro.
+  * Foco em pilotagem competitiva pura no limite.
+  * Todos os carros correm nivelados a **280 km/h** de velocidade máxima, com upgrades e prêmios desativados.
 
 ---
 
 ## 🚗 Os 20 Carros Brasileiros
 
-Todos os carros são desenhados em código vetorial puro (Canvas 2D), com detalhes realistas como escapamento, lanternas com iluminação noturna, luzes de freio, retrovisores dinâmicos, estepe e decalques próprios:
+Todos os carros são desenhados em código vetorial puro (Canvas 2D em `js/cars.js`), com detalhes como escapamento, lanternas noturnas, luzes de freio, retrovisores, estepe, pintura personalizável e decalques próprios:
 
 | Carro | Velocidade Base | Máxima com Upgrades (Nv 3) | Aceleração | Grip (Curva) | Destaque e Estilo |
 | :--- | :---: | :---: | :---: | :---: | :--- |
@@ -75,49 +87,59 @@ Todos os carros são desenhados em código vetorial puro (Canvas 2D), com detalh
 
 ---
 
-## 🛠️ Sistema de Upgrades & Economia
+## 🛠️ Sistema de Upgrades, Economia e Conquistas
 
-### Premiação por Corrida
-| Posição | Prêmio em Dinheiro |
+### Premiação Base por Corrida (Modo Normal)
+| Posição | Prêmio Base |
 | :---: | :---: |
-| 🥇 **1º Lugar** | **R$ 15.000** |
-| 🥈 **2º Lugar** | **R$ 10.000** |
-| 🥉 **3º Lugar** | **R$ 7.500** |
-| **4º ao 6º** | **R$ 4.500** |
+| 🥇 **1º Lugar** | **R$ 10.000** |
+| 🥈 **2º Lugar** | **R$ 8.000** |
+| 🥉 **3º Lugar** | **R$ 6.000** |
+| **4º ao 6º** | **R$ 4.000** |
 | **7º ao 10º** | **R$ 2.500** |
 | **11º ao 20º** | **R$ 1.000** |
 
-### As 3 Categorias de Preparação:
+* **Escalonamento em Campeonatos Customizados:** Em temporadas menores que 31 etapas, os prêmios em dinheiro são multiplicados proporcionalmente ($\sqrt{31 / \text{etapas}}$, limitado a `3x`), permitindo evoluir o carro mesmo em torneios curtos (ex.: 5 ou 10 corridas).
+
+### As 3 Categorias de Preparação
 1. **⚡ Motor & Preparação:**
-   * Eleva progressivamente a velocidade final do veículo para o **Target Competitivo** (todos os carros no Nível 3 atingem entre 278 km/h e 308 km/h) e adiciona +5% de aceleração por nível (+15% no Nível 3).
+   * Eleva progressivamente a velocidade final do veículo até o **Target Competitivo** (entre 278 km/h e 308 km/h no Nível 3) e adiciona +5% de aceleração por nível (+15% no Nível 3).
    * Custos: **R$ 4.000** (Nv 1) | **R$ 8.000** (Nv 2) | **R$ 14.000** (Nv 3).
 2. **🏁 Pneus & Aderência:**
-   * Melhora o grip lateral em +6% por nível (+18% no Nível 3), diminuindo a força centrífuga nas curvas.
+   * Melhora o grip lateral em +6% por nível (+18% no Nível 3), reduzindo a força centrífuga nas curvas.
    * Custos: **R$ 3.500** (Nv 1) | **R$ 7.000** (Nv 2) | **R$ 12.000** (Nv 3).
 3. **🚀 Turbo & Nitro:**
-   * Aumenta a duração de cada uma das 3 cargas de nitro em +0.60s por nível (+1.80s no Nível 3, alcançando quase 4 segundos contínuos de empurrão).
+   * Aumenta a duração de cada uma das 3 cargas de nitro em +0.60s por nível (+1.80s no Nível 3).
    * Custos: **R$ 4.500** (Nv 1) | **R$ 9.000** (Nv 2) | **R$ 15.000** (Nv 3).
+
+### Conquistas & Recordes (`CareerStats` e `TrackRecords`)
+* **Recordes por Pista:** Armazena a melhor volta e a melhor colocação obtida em cada circuito (exibindo medalhas de ouro/prata/bronze na tela de seleção).
+* **6 Troféus de Carreira:**
+  * 🏆 **1ª Vitória** — Vencer uma corrida pela primeira vez.
+  * 🥉 **3 Pódios** — Conquistar 3 pódios na carreira.
+  * 🌧️ **Rei da Chuva** — Vencer uma corrida sob chuva intensa.
+  * 🚀 **P20 ao P1** — Vencer largando de último (20º lugar).
+  * 🐢 **Mestre do Fusca** — Vencer uma corrida pilotando o Fusca 1300.
+  * 👑 **Campeão** — Terminar em 1º lugar geral na pontuação ao fim de um campeonato.
 
 ---
 
-## 🏎️ Física de Pilotagem e Controles
+## 🏎️ Física de Pilotagem, Câmbio e Controles
 
-* **Vácuo (Slipstream / Slingshot):**
-  Posicionar-se diretamente atrás de um adversário reduz o arrasto, gerando aumento progressivo de velocidade máxima e aceleração para ultrapassagem estilo estilingue.
-* **Sistema de Nitro Progressivo:**
-  O nitro confere +30% de velocidade máxima e +85% de aceleração instantânea, com decaimento suave de 3 segundos ao término da carga.
-* **Colisão e Contato Porta a Porta:**
-  Calibrado com precisão física (`0.365`): permite disputas lado a lado justas e agressivas com faíscas nas latarias, sem efeitos de "campo magnético" ou batidas no vazio.
-* **Controles Suportados:**
-  * **Teclado:** Setas ou W/A/S/D (Acelera, Freia, Direção), Barra de Espaço ou N (Nitro).
-  * **Gamepad (Controle USB/Bluetooth):** Suporte total a analógicos, botões e gatilhos de aceleração/frenagem progressivos (L2/R2).
-  * **Touchscreen (Mobile):** Botões virtuais na tela com detecção de toque múltiplo e resposta instantânea.
+* **Câmbio Automático / Manual (`Car`):** Simulação de marchas baseada em `GEAR_RATIOS` com opção de troca automática ou manual.
+* **Vácuo (Slipstream / Slingshot):** Posicionar-se diretamente atrás de um adversário reduz o arrasto, gerando aumento progressivo de velocidade máxima e aceleração para ultrapassagens.
+* **Sistema de Nitro Progressivo:** O nitro confere +30% de velocidade máxima e +85% de aceleração instantânea, com decaimento suave ao término da carga.
+* **Colisão e Contato Porta a Porta:** Calibrado com precisão física (`0.365`), permitindo disputas lado a lado com faíscas nas latarias (`ParticlePool`).
+* **Controles Suportados (`InputHandler`):**
+  * **Teclado:** Setas ou `W`/`A`/`S`/`D` (Acelera, Freia, Direção), `Espaço` ou `N` (Nitro), `Enter`/`Esc` (Menus e Pausa).
+  * **Gamepad (USB/Bluetooth):** Suporte nativo a analógicos, direcionais e gatilhos progressivos (`L2`/`R2`).
+  * **Touchscreen (Mobile):** Botões virtuais na tela com detecção multitoque e resposta imediata.
 
 ---
 
 ## 🗺️ As 31 Pistas do Campeonato
 
-O calendário do campeonato visita circuitos temáticos com clima dinâmico, túneis, viadutos, pontes pênseis e monumentos icônicos de cada região:
+O calendário visita 4 pistas clássicas e as 27 capitais brasileiras, cada uma com curva de elevação, traçado próprio (`tracks_data.js`) e monumentos regionais exclusivos:
 
 1. **Brasil GP (Autódromo de Interlagos)** — Abertura clássica com o S do Senna e reta dos boxes.
 2. **Serra Brasileira** — Descidas sinuosas e relevo desafiador.
@@ -153,79 +175,82 @@ O calendário do campeonato visita circuitos temáticos com clima dinâmico, tú
 
 ---
 
-## 🌤️ Sistema de Clima e Horários Dinâmicos
+## 🌤️ Sistema de Clima, Horários Dinâmicos e Cenários
 
-O LH44 conta com uma simulação visual atmosférica processada em tempo real, calculando paletas de cores, reflexos de asfalto molhado, iluminação dos faróis e partículas meteorológicas para cada ambiente.
-
-### Padrão das Pistas
-* **Todas as 31 pistas** possuem configuração padrão em **Dia Ensolarado** (`DIA`), assegurando visibilidade limpa inicial e permitindo que qualquer variação dependa estritamente da escolha do piloto ou do modo dinâmico.
+O LH44 conta com simulação atmosférica em tempo real (`sky_renderer.js` e `tracks.js`), calculando paletas de cores, reflexos de asfalto molhado, iluminação dos faróis e partículas meteorológicas.
 
 ### Condições Climáticas Selecionáveis
 * **🌤️ DIA:** Sol aberto, céu azul vibrante e alta visibilidade.
 * **🌇 TARDE:** Crepúsculo dourado/alaranjado com transição atmosférica.
-* **🌙 NOITE:** Noite fechada com iluminação de postes urbanos, estrelas e faróis ativos nos carros.
-* **🌧️ CHUVA DIA / ⛈️ CHUVA NOITE:** Chuva contínua com poças d'água e reflexos espelhados das latarias e luzes de freio no asfalto molhado.
-* **❄️ NEVE DIA / 🌨️ NEVE NOITE:** Pistas e montanhas cobertas por neve, geada branca na vegetação e flocos caindo ao sabor do vento.
+* **🌙 NOITE:** Noite fechada com postes urbanos, estrelas, Lua e faróis ativos nos carros.
+* **🌧️ CHUVA DIA / ⛈️ CHUVA NOITE:** Chuva contínua com poças d'água e reflexos no asfalto molhado.
+* **❄️ NEVE DIA / 🌨️ NEVE NOITE:** Pistas e montanhas cobertas por neve e flocos caindo ao vento.
 
-### Modo Dinâmico (🔄)
-* **Ciclo Cronológico Rigoroso:** O tempo segue estritamente a ordem lógica natural:
+### Modo Dinâmico (`DINAMICO`)
+* **Ciclo Cronológico Contínuo:**
   $$\text{DIA} \longrightarrow \text{TARDE} \longrightarrow \text{NOITE} \longrightarrow \text{DIA}$$
-* **Partida Aleatória:** Qualquer corrida pode se iniciar em qualquer uma das três etapas (começar de dia e entardecer, começar de tarde e anoitecer, ou começar de noite e amanhecer).
-* **Precipitação Independente e Imprevisível:** As condições meteorológicas (**Limpo**, **Chuva** ou **Neve**) são sorteadas de forma autônoma para cada período do dia. Uma corrida pode começar com chuva matinal, abrir sol ao entardecer e nevar durante a noite.
-* **Transição Suave (Blend Contínuo):** A transição entre os estados ocorre gradualmente a cada ~20 segundos de sustentação com 8 segundos de interpolação não-linear de cores, névoa e partículas.
-* **Persistência no Campeonato:** A escolha pelo modo Dinâmico permanece ativa por todas as etapas da temporada, sendo devidamente gravada nos slots de progresso salvos.
+* **Transição Gradual:** Cada etapa permanece por **18 segundos** (`DYN_HOLD = 18`) e transiciona suavemente ao longo de **16 segundos** (`DYN_BLEND = 16`), enquanto mudanças manuais de ambiente interpolam em **2.8 segundos** (`envBlend`).
+* **Precipitação Independente e Persistência:** Condições de chuva ou neve podem surgir de forma autônoma ao longo do ciclo, e a escolha do modo Dinâmico é preservada em todo o campeonato e nos saves.
 
-### 🏙️ Cenários e Horizontes Vivos das 31 Pistas
-Cada um dos circuitos brasileiros conta com uma ambientação própria distribuída em 4 grandes biomas regionais, mantendo seus monumentos oficiais preservados e enriquecidos com elementos vivos:
-* **Prédios com Janelas Reativas:** Refletem a luz azulada do céu durante o dia, acendem-se suavemente em tons âmbar ao crepúsculo da tarde e brilham em amarelo, dourado e azul ciano à noite (com variação orgânica realista de apartamentos acesos e apagados).
-* **Antenas e Balizas de Aviação:** Mastros no topo dos edifícios com luzes vermelhas piscantes em sincronia com o horário.
-* **Orlas, Praias e Lagos:** Faixas d'água fluviais e marítimas com gradientes dinâmicos de profundidade, faixas de areia litorânea e reflexos ondulantes da cidade na água à noite.
-* **Pontes Pênseis e Estaiadas:** Cabos e mastros iluminados atravessando rios e baías (Hercílio Luz, Newton Navarro, Terceira Ponte, Estaiada de Teresina, Ponte JK, Ponte Rio Negro e Octávio Frias de Oliveira).
-* **Relevo e Vegetação Regional:** Cordilheiras montanhosas, picos alpinos, paredões rochosos de cânions, florestas tropicais de várzea, coqueirais e bosques de araucárias estilizados.
+### 🏙️ Cenários e Horizontes Vivos
+* **Prédios com Janelas Reativas:** Exibem vidros reflexivos azulados mesmo durante o **dia**, acendem luzes âmbar na **penumbra** e iluminam apartamentos em amarelo/ciano à **noite**.
+* **Nuvens Sólidas e Orgânicas (`drawArcadeCloud`):** Desenhadas em silhueta única arredondada com gradiente opaco do ambiente (`E.css.cloudTop` / `E.css.cloudBot`), garantindo oclusão real ao passar na frente do Sol, da Lua e das estrelas.
+* **Pontes, Orlas e Monumentos:** Pontes pênseis e estaiadas iluminadas, faixas d'água com reflexos noturnos, antenas com balizas piscantes e relevo regional.
 
 ---
 
 ## 🤖 Pilotos da IA e Personalidades
 
 O grid é composto por 19 inteligências artificiais com traços comportamentais distintos:
-
-* **Técnicos (`TECHNICAL`):**
-  * Exemplos: **HAM** (Hamilton), **SCH** (Schumacher), **RAI** (Räikkönen), **FIT** (Fittipaldi), **VET** (Vettel).
-  * Calculam o traçado perfeito, freiam no momento ideal e compensam deficiências de estabilidade do carro.
-* **Agressivos (`AGGRESSIVE`):**
-  * Exemplos: **SEN** (Senna), **VER** (Verstappen), **ALO** (Alonso), **MON** (Montoya).
-  * Forçam ultrapassagens por dentro, entram no limite nas curvas e defendem posição com firmeza.
-* **Sob Pressão (`PRESSURE_PRONE`):**
-  * Exemplos: **BAR** (Barrichello), **BOT** (Bottas), **NOR** (Norris).
-  * Pilotos rápidos que podem espalhar na curva ao serem pressionados de perto pelo jogador.
+* **Técnicos (`TECHNICAL`):** **HAM**, **SCH**, **RAI**, **FIT**, **VET** — traçado preciso e frenagem otimizada.
+* **Agressivos (`AGGRESSIVE`):** **SEN**, **VER**, **ALO**, **MON** — forçam ultrapassagens por dentro e defendem posição com firmeza.
+* **Sob Pressão (`PRESSURE_PRONE`):** **BAR**, **BOT**, **NOR** — pilotos rápidos que podem espalhar na curva quando pressionados de perto.
 
 ---
 
-## 💻 Tecnologia e Arquitetura do Projeto
+## 💻 Arquitetura e Módulos do Projeto
 
-* **Linguagem Principal:** JavaScript ES6+ Vanilla (sem frameworks pesados, 60 FPS cravados).
-* **Renderização:** HTML5 `<canvas>` 2D com projeção geométrica pseudo-3D e interpolação de subpixel.
-* **Áudio:** Sintetizador sonoro próprio com osciladores Web Audio API (tons polifônicos, ruído de derrapagem, motor dinâmico e trilha sonora chiptune arcade).
-* **Mobile / Android:**
-  * Projeto Android nativo leve (`android-project/`) encapsulado em WebView acelerada por hardware.
-  * Script de compilação automatizado via CLI usando ferramentas oficiais do Android SDK (`aapt2`, `d8`, `zipalign`, `apksigner`).
-  * APK final leve (~354 KB) com suporte a tela cheia imersiva e economia de bateria.
+* `index.html` — Ponto de entrada, canvas, overlays de áudio/qualidade/touch e carregamento ordenado dos scripts.
+* `css/style.css` — Estilização responsiva e controles mobile.
+* `sw.js` & `manifest.webmanifest` — Suporte PWA e cache offline versionado.
+* `js/constants.js` — Constantes globais, pilotos da F1, pontuação, marchas e músicas.
+* `js/audio.js` — Motor de áudio procedural via Web Audio API (motor, derrapagem, efeitos e trilha chiptune).
+* `js/particles.js` — Pool de partículas (`ParticlePool`) para poeira, faíscas, fumaça, chuva e neve.
+* `js/input.js` — Gerenciador unificado de Teclado, Gamepad e Touch (`InputHandler`).
+* `js/cars.js` — Definições e renderização vetorial dos 20 carros brasileiros (`CAR_MODELS` e `CarArt`).
+* `js/car.js` — Física individual dos veículos, transmissão, nitro e IA (`Car`).
+* `js/tracks_data.js` — Geometria, curvas e elevações pré-calculadas das 31 pistas.
+* `js/tracks.js` — Construtor de pistas (`TrackBuilder`) e presets/interpolação atmosférica (`ENV_PRESETS`).
+* `js/monuments.js` — Horizontes, nuvens, skyline com janelas reativas e monumentos de cada cidade.
+* `js/sky_renderer.js` — Mixin de renderização de céu, Sol/Lua, estrelas, biomas e chuva/neve.
+* `js/road_renderer.js` — Mixin de projeção pseudo-3D de pista, zebras, postes, placas e carros.
+* `js/hud_renderer.js` — Mixin de HUD de corrida, minimapa, gap de tempo, Qualy e layouts de tela.
+* `js/menu_renderer.js` — Mixin de menus, seleção de modos, calendário customizado, garagem, upgrades e encerramento.
+* `js/save.js` — Persistência local em `localStorage` (`SaveManager`, `TrackRecords`, `CareerStats`).
+* `js/game.js` — Loop principal, máquina de estados, regras de corrida/campeonato e integração geral (`LH44RacingGame`).
+* `js/main.js` — Inicialização do jogo e registro do Service Worker.
+* `tests/game.test.mjs` — Suíte automatizada de testes unitários com `node:test`.
+* `android-project/` — Projeto Android nativo em WebView com assets sincronizados e script de build.
 
 ---
 
-## 🚀 Como Jogar e Compilar
+## 🚀 Como Jogar, Testar e Compilar
 
-### 1. No Navegador Web:
-Basta iniciar um servidor web local na pasta raiz do projeto:
+### 1. No Navegador Web
+Inicie um servidor HTTP local na raiz do projeto:
 ```bash
 python3 -m http.server 8080
 ```
-E acessar no navegador: `http://localhost:8080`
+Acesse `http://localhost:8080` (pressione `Ctrl+F5` após atualizações para renovar o cache).
 
-### 2. No Smartphone (Android):
-O APK pronto para instalação encontra-se na raiz do projeto:
-* **Arquivo:** `LH44_V1.7.apk`
-* Para recompilar uma nova versão do APK após editar os códigos web:
+### 2. Testes Automatizados
+Execute a suíte de testes com Node.js:
+```bash
+node --test tests/game.test.mjs
+```
+
+### 3. No Smartphone (Android)
+O APK pronto para instalação encontra-se na raiz (`LH44_V1.7.apk`). Para recompilar após sincronizar `android-project/assets/`:
 ```bash
 cd android-project
 ./build_apk.sh
@@ -233,4 +258,3 @@ cd android-project
 
 ---
 *LH44 — Do clássico ao bólido dos sonhos nas pistas do Brasil!* 🇧🇷🏁
-

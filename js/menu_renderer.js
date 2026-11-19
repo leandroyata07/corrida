@@ -477,9 +477,13 @@
           id: 0,
           title: 'CAMPEONATO F1',
           icon: '🏆',
-          badge: 'TEMPORADA COMPLETA',
-          color: '#FFD700',
-          lines: [
+          badge: this.customChampionship ? 'TORNEIO CUSTOM' : 'TEMPORADA COMPLETA',
+          color: this.customChampionship ? '#38BDF8' : '#FFD700',
+          lines: this.customChampionship ? [
+            '• 5 A 31 PISTAS À ESCOLHA',
+            '• NA ORDEM QUE VOCÊ DEFINIR',
+            '• PRÊMIOS ESCALONADOS'
+          ] : [
             `• ${TRACK_DEFINITIONS.length} ETAPAS (FINAL EM SP)`,
             '• PONTUAÇÃO F1 (1º AO 10º)',
             '• DISPUTA DO TÍTULO & PÓDIO'
@@ -573,6 +577,20 @@
           ctx.fillText(item.lines[l], x + 7, y + 72 + l * 12);
         }
 
+        // Pill de alternância Oficial / Custom dentro do card 0 (Campeonato)
+        if (item.id === 0 && L.btnChampType) {
+          const tb = L.btnChampType;
+          ctx.fillStyle = this.customChampionship ? 'rgba(14, 116, 144, 0.85)' : 'rgba(30, 41, 59, 0.92)';
+          ctx.fillRect(tb.x, tb.y, tb.w, tb.h);
+          ctx.strokeStyle = this.customChampionship ? '#38BDF8' : '#F59E0B';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(tb.x, tb.y, tb.w, tb.h);
+          ctx.textAlign = 'center';
+          ctx.fillStyle = this.customChampionship ? '#E0F2FE' : '#FDE68A';
+          ctx.font = 'bold 5.8px monospace';
+          ctx.fillText(this.customChampionship ? '◀ CUSTOM (5-31) ▶' : '◀ OFICIAL (31) ▶', tb.x + tb.w / 2, tb.y + tb.h * 0.72);
+        }
+
         // Status no rodapé do card
         ctx.textAlign = 'center';
         if (isSelected) {
@@ -611,6 +629,158 @@
         ctx.font = touchSafe ? 'bold 7.2px monospace' : 'bold 8px monospace';
         ctx.fillText('CONTINUAR ▶', btnC.x + btnC.w / 2, btnC.y + btnC.h / 2 + 2.5);
       }
+
+      ctx.restore();
+    }
+
+    renderCustomScheduleSelect(ctx) {
+      const L = this.getCustomScheduleLayout();
+      const touchSafe = L.touchSafe;
+      const schedule = this.customSchedule || [];
+      const curIdx = (this.customCursorIndex !== undefined) ? this.customCursorIndex : 0;
+      const track = TRACK_DEFINITIONS[curIdx] || TRACK_DEFINITIONS[0];
+
+      ctx.fillStyle = 'rgba(6, 9, 18, 0.84)';
+      ctx.fillRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT);
+
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#38BDF8';
+      ctx.font = touchSafe ? 'bold 9px monospace' : 'bold 10px monospace';
+      ctx.fillText(`MONTE SEU CAMPEONATO (${schedule.length}/${TRACK_DEFINITIONS.length} — MÍN. 5)`, INTERNAL_WIDTH / 2, touchSafe ? 9.5 : 10.5);
+
+      // Grade de chips das 31 pistas
+      for (let c = 0; c < L.chips.length; c++) {
+        const chip = L.chips[c];
+        const orderPos = schedule.indexOf(chip.i);
+        const isAdded = (orderPos !== -1);
+        const isCursor = (curIdx === chip.i);
+        const tDef = TRACK_DEFINITIONS[chip.i];
+        const stateTxt = chip.isClassic
+          ? `★ ${tDef.stateCode || tDef.name.split(' ')[0]}`
+          : (tDef.stateCode || (chip.i - 3));
+
+        if (isAdded) {
+          ctx.fillStyle = '#0284C7';
+        } else if (chip.isClassic) {
+          ctx.fillStyle = 'rgba(245, 158, 11, 0.22)';
+        } else {
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        }
+        ctx.fillRect(chip.x, chip.y, chip.w, chip.h);
+
+        ctx.strokeStyle = isCursor ? '#FFD700' : (isAdded ? '#38BDF8' : (chip.isClassic ? '#F59E0B' : 'rgba(70, 90, 120, 0.4)'));
+        ctx.lineWidth = isCursor ? 1.5 : (isAdded ? 1.1 : 0.6);
+        ctx.strokeRect(chip.x, chip.y, chip.w, chip.h);
+
+        ctx.fillStyle = isAdded ? '#FFFFFF' : (chip.isClassic ? '#FDE68A' : '#CBD5E1');
+        ctx.font = 'bold 5.5px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(stateTxt, chip.x + chip.w / 2, chip.y + chip.h * 0.74);
+
+        // Badge com o número da ordem escolhida
+        if (isAdded) {
+          ctx.fillStyle = '#FFD700';
+          ctx.fillRect(chip.x + 1, chip.y + 1, 9, 5.5);
+          ctx.fillStyle = '#041019';
+          ctx.font = 'bold 4.8px monospace';
+          ctx.fillText(`${orderPos + 1}`, chip.x + 5.5, chip.y + 5.2);
+        }
+      }
+
+      // Card central de preview + ordem selecionada
+      const { bX, bY, bW, bH } = L;
+      const cardGrad = ctx.createLinearGradient(bX, bY, bX, bY + bH);
+      cardGrad.addColorStop(0, 'rgba(14, 22, 38, 0.95)');
+      cardGrad.addColorStop(1, 'rgba(8, 12, 22, 0.97)');
+      ctx.fillStyle = cardGrad;
+      ctx.fillRect(bX, bY, bW, bH);
+      ctx.strokeStyle = '#38BDF8';
+      ctx.lineWidth = 1.3;
+      ctx.strokeRect(bX, bY, bW, bH);
+
+      const curOrder = schedule.indexOf(curIdx);
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 7.5px monospace';
+      ctx.fillText(`${track.name}`, bX + 8, bY + 12);
+
+      ctx.textAlign = 'right';
+      ctx.fillStyle = curOrder !== -1 ? '#10B981' : '#94A3B8';
+      ctx.font = 'bold 6.2px monospace';
+      ctx.fillText(curOrder !== -1 ? `✓ ETAPA #${curOrder + 1} (CLIQUE P/ REMOVER)` : '+ CLIQUE/ESPAÇO P/ ADICIONAR', bX + bW - 8, bY + 12);
+
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#CBD5E1';
+      ctx.font = '5.8px monospace';
+      ctx.fillText(`MONUMENTO: ${track.monument || track.style || 'CIRCUITO'}`, bX + 8, bY + 22);
+
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
+      ctx.fillRect(bX + 8, bY + 26, bW - 16, 1);
+
+      ctx.fillStyle = '#38BDF8';
+      ctx.font = 'bold 6px monospace';
+      ctx.fillText('ORDEM DO CALENDÁRIO:', bX + 8, bY + 36);
+
+      if (schedule.length === 0) {
+        ctx.fillStyle = '#64748B';
+        ctx.font = '6px monospace';
+        ctx.fillText('Nenhuma pista selecionada. Clique nas pistas acima ou use ALEATÓRIO 10.', bX + 8, bY + 50);
+      } else {
+        const perRow = 6;
+        const maxRows = 4;
+        const cellW = Math.floor((bW - 16) / perRow);
+        for (let i = 0; i < Math.min(schedule.length, perRow * maxRows); i++) {
+          const tDef = TRACK_DEFINITIONS[schedule[i]];
+          const code = tDef ? (tDef.stateCode || tDef.name.slice(0, 4).toUpperCase()) : `#${schedule[i]}`;
+          const col = i % perRow;
+          const row = Math.floor(i / perRow);
+          const tx = bX + 8 + col * cellW;
+          const ty = bY + 47 + row * 11;
+          ctx.fillStyle = (i === schedule.length - 1) ? '#FFD700' : '#E2E8F0';
+          ctx.font = 'bold 5.8px monospace';
+          ctx.fillText(`${i + 1}.${code}`, tx, ty);
+        }
+        if (schedule.length > perRow * maxRows) {
+          ctx.fillStyle = '#94A3B8';
+          ctx.font = '5.5px monospace';
+          ctx.fillText(`+ ${schedule.length - perRow * maxRows} etapas...`, bX + 8, bY + bH - 6);
+        }
+      }
+
+      if (this.customScheduleWarnTimer > 0) {
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#EF4444';
+        ctx.font = 'bold 6.5px monospace';
+        ctx.fillText('SELECIONE NO MÍNIMO 5 PISTAS PARA CONTINUAR!', bX + bW / 2, bY + bH - 6);
+      }
+
+      // Botões de ação rápida: ALEATÓRIO 10 e LIMPAR
+      const drawActionBtn = (btn, label, bg, border, fg) => {
+        ctx.fillStyle = bg;
+        ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
+        ctx.strokeStyle = border;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = fg;
+        ctx.font = 'bold 6.2px monospace';
+        ctx.fillText(label, btn.x + btn.w / 2, btn.y + btn.h * 0.72);
+      };
+
+      drawActionBtn(L.btnRandom, '🎲 ALEATÓRIO (10)', '#1E293B', '#38BDF8', '#E0F2FE');
+      drawActionBtn(L.btnClear, '🗑 LIMPAR TUDO', '#1E293B', '#F59E0B', '#FDE68A');
+
+      // Botões inferiores: VOLTAR e CONFIRMAR
+      drawActionBtn(L.btnBack, '◀ VOLTAR', '#1E293B', '#EF4444', '#EF4444');
+      const ready = (schedule.length >= 5);
+      drawActionBtn(
+        L.btnConfirm,
+        ready ? `CONFIRMAR (${schedule.length}) ▶` : `MÍN. 5 PISTAS (${schedule.length}/5)`,
+        ready ? '#065F46' : '#1E293B',
+        ready ? '#10B981' : '#475569',
+        ready ? '#FFFFFF' : '#94A3B8'
+      );
 
       ctx.restore();
     }
@@ -1326,7 +1496,10 @@
       ctx.fillStyle = '#00E5FF';
       ctx.font = touchSafe ? 'bold 9px monospace' : 'bold 12px monospace';
       const def = TRACK_DEFINITIONS[this.trackIndex];
-      const modeBadge = (this.gameMode === 'QUICK_RACE') ? '⚡ CORRIDA RÁPIDA' : `🏆 CAMPEONATO F1 (${this.trackIndex + 1}/${TRACK_DEFINITIONS.length})`;
+      const totalStages = (this.seasonSchedule && this.seasonSchedule.length) ? this.seasonSchedule.length : TRACK_DEFINITIONS.length;
+      const modeBadge = (this.gameMode === 'QUICK_RACE')
+        ? '⚡ CORRIDA RÁPIDA'
+        : `🏆 CAMPEONATO${this.customChampionship ? ' CUSTOM' : ' F1'} (${(this.seasonStage || 0) + 1}/${totalStages})`;
       ctx.fillText(`PREPARAR — ${modeBadge}`, INTERNAL_WIDTH / 2, L.titleY);
 
       ctx.fillStyle = '#FFD700';
@@ -1798,9 +1971,11 @@
           ctx.fillText(`🏁 ${data.playerName}  [${carModel.name}]  (${modeLabel})`, infoX, cY + 9);
 
           const nextTDef = TRACK_DEFINITIONS[data.nextTrackIndex] || { name: 'PRÓXIMA' };
+          const totalStages = (data.seasonSchedule && data.seasonSchedule.length) ? data.seasonSchedule.length : TRACK_DEFINITIONS.length;
+          const customTag = data.isCustomChampionship ? ' [CUSTOM]' : '';
           ctx.fillStyle = '#E2E8F0';
           ctx.font = '7px monospace';
-          ctx.fillText(`🏆 P${data.playerRank} (${data.totalPoints} pts) | Etapa ${data.seasonStage + 1}: ${nextTDef.name}`, infoX, cY + 20);
+          ctx.fillText(`🏆 P${data.playerRank} (${data.totalPoints} pts) | Etapa ${data.seasonStage + 1}/${totalStages}: ${nextTDef.name}${customTag}`, infoX, cY + 20);
 
           ctx.fillStyle = '#94A3B8';
           ctx.font = '6.5px monospace';

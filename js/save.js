@@ -35,6 +35,7 @@ const SaveManager = {
         dateStr: dateStr,
         playerName: data.playerName || 'JOGADOR',
         gameMode: data.gameMode || 'CHAMPIONSHIP',
+        isCustomChampionship: !!data.isCustomChampionship,
         difficulty: data.difficulty || 'NORMAL',
         selectedCarIndex: data.selectedCarIndex !== undefined ? data.selectedCarIndex : 0,
         colorIndex: data.colorIndex !== undefined ? data.colorIndex : 1,
