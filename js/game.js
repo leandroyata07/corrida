@@ -1528,7 +1528,12 @@
             } else if (isHost && hit(L.btnStart, click)) {
               if (np.meta.guestName && np.meta.hostReady && np.meta.guestReady) {
                 const nextSeq = (np.meta.raceSeq || 0) + 1;
+                np.meta.status = 'RACING';
+                np.meta.raceSeq = nextSeq;
                 np.updateMeta({ status: 'RACING', raceSeq: nextSeq });
+                this.startOnlineRace();
+                this.input.clearPulses();
+                return;
               } else {
                 this.audio.playBeep(220, 0.12);
               }
@@ -1539,7 +1544,12 @@
         if (sub === 'ROOM' && this.input.justPressedEnter && np && np.role === 'HOST' && np.meta) {
           if (np.meta.guestName && np.meta.hostReady && np.meta.guestReady) {
             const nextSeq = (np.meta.raceSeq || 0) + 1;
+            np.meta.status = 'RACING';
+            np.meta.raceSeq = nextSeq;
             np.updateMeta({ status: 'RACING', raceSeq: nextSeq });
+            this.startOnlineRace();
+            this.input.clearPulses();
+            return;
           } else {
             this.audio.playBeep(220, 0.12);
           }

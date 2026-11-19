@@ -618,7 +618,13 @@
       ctx.font = 'bold 6.4px monospace';
       ctx.fillText(myCar.name, L.btnCarPrev.x + 80, L.btnCarPrev.y + 10.5);
       drawBtn(L.btnCarNext, '▶', '#1E293B', '#38BDF8', '#FFFFFF');
-      drawBtn(L.btnColNext, 'COR 🎨', '#1E293B', '#F59E0B', '#FDE68A', 'bold 6px monospace');
+      const curCol = (typeof CAR_COLORS !== 'undefined' && CAR_COLORS[this.colorIndex]) ? CAR_COLORS[this.colorIndex] : { hex: '#EF4444' };
+      drawBtn(L.btnColNext, 'COR', '#1E293B', curCol.hex, '#FFFFFF', 'bold 6px monospace');
+      ctx.fillStyle = curCol.hex;
+      ctx.fillRect(L.btnColNext.x + 4, L.btnColNext.y + 4, 8, L.btnColNext.h - 8);
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(L.btnColNext.x + 4, L.btnColNext.y + 4, 8, L.btnColNext.h - 8);
 
       // Seleção de pista e clima (Host controla)
       const tIdx = (meta.trackIndex !== undefined) ? meta.trackIndex : 0;
