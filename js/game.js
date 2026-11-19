@@ -1021,10 +1021,11 @@
       this.lastLapTime = 0;
       this.finishingRace = false;
       this.finishGraceTimer = 0;
-      this.particles.reset();
+      this.particlePool.clear();
       if (this.audio) {
         this.audio.stopTitleMusic();
-        this.audio.startRaceMusic(this.songIndex);
+        this.audio.setSong(this.songIndex);
+        this.audio.startMusic();
       }
       this.state = 'COUNTDOWN';
     }
@@ -1043,22 +1044,29 @@
         const slot = i + 1;
         const profile = this.seasonBots[i];
         const bModel = profile.model;
-        const bColor = profile.color;
         const rowFromBack = Math.floor((TOTAL_RACERS - slot) / 2);
         const isLeft = (slot % 2 === 1);
         const z = 1600 + rowFromBack * GRID_ROW_SPACING + (isLeft ? GRID_STAGGER_Z : 0);
         const x = isLeft ? -GRID_COL_X : GRID_COL_X;
         const bot = new Car(i + 1, bModel, false);
-        bot.bodyColor = (bColor && bColor.hex) ? bColor.hex : bColor;
-        bot.driverCode = profile.driver.code;
-        bot.driverName = profile.driver.name;
+        bot.bodyColor = profile.bodyColor || '#64748B';
+        bot.driverCode = profile.driverCode || 'BOT';
+        bot.driverName = profile.driverName || 'PILOTO';
+        bot.effectiveMaxSpeed = bModel.maxSpeed || 220;
         bot.aiPersonality = profile.aiPersonality || 'TECHNICAL';
-        bot.aiSkill = profile.baseAiSkill || 0.90;
+        bot.pressureTimer = 0;
+        bot.aiSkill = Math.max(0.78, Math.min(0.99, (profile.baseAiSkill || 0.90)));
         bot.launchDelay = 0.04 + ((slot - 1) * 0.01) + Math.random() * 0.14;
         bot.z = z;
         bot.x = x;
         bot.gridStartX = x;
         bot.targetX = x;
+        bot.speed = 0;
+        bot.laps = 0;
+        bot.totalDistance = z;
+        bot.nextLapTarget = START_LINE_Z + this.track.totalLength;
+        bot.nitroCharges = 3;
+        bot.nitroCooldown = 3.5 + Math.random() * 5.0;
         this.cars.push(bot);
       }
 
@@ -1073,18 +1081,26 @@
 
       const hostCar = new Car(isHost ? 0 : 19, hostModel, isHost);
       hostCar.bodyColor = hostColor.hex;
+      hostCar.effectiveMaxSpeed = hostModel.maxSpeed || 220;
       hostCar.z = hostZ;
       hostCar.x = -GRID_COL_X;
       hostCar.targetX = hostCar.x;
+      hostCar.totalDistance = hostZ;
+      hostCar.nextLapTarget = START_LINE_Z + this.track.totalLength;
+      hostCar.nitroCharges = 3;
       hostCar.driverName = meta.hostName || 'HOST';
       hostCar.driverCode = (meta.hostName || 'HST').slice(0, 3).toUpperCase();
       hostCar.isRemote = !isHost;
 
       const guestCar = new Car(isHost ? 19 : 0, guestModel, !isHost);
       guestCar.bodyColor = guestColor.hex;
+      guestCar.effectiveMaxSpeed = guestModel.maxSpeed || 220;
       guestCar.z = guestZ;
       guestCar.x = GRID_COL_X;
       guestCar.targetX = guestCar.x;
+      guestCar.totalDistance = guestZ;
+      guestCar.nextLapTarget = START_LINE_Z + this.track.totalLength;
+      guestCar.nitroCharges = 3;
       guestCar.driverName = meta.guestName || 'AMIGO';
       guestCar.driverCode = (meta.guestName || 'AMG').slice(0, 3).toUpperCase();
       guestCar.isRemote = isHost;
@@ -1093,7 +1109,7 @@
       this.cars.push(guestCar);
       this.player = isHost ? hostCar : guestCar;
       this.remoteCar = isHost ? guestCar : hostCar;
-      this.cameraZ = this.wrapZ(this.player.z - CAMERA_OFFSET_Z);
+      this.cameraZ = this.wrapZ(this.player.z - PLAYER_Z_OFFSET);
     }
 
     syncOnlineRace(dt) {
