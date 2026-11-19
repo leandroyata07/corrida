@@ -1199,21 +1199,28 @@
           rc.totalDistance += stepZ;
         }
         if (rs) {
-          const posBlend = Math.min(1, dt * 10);
-          const latBlend = Math.min(1, dt * 12);
-          const dz = this.shortestDeltaZ(rc.z, rs.z || 0);
+          const leadSec = np.p2pOpen ? 0.015 : 0.11;
+          const targetZ = this.wrapZ((rs.z || 0) + (rs.speed || 0) * 20 * leadSec);
+          const targetTd = (rs.td || 0) + (rs.speed || 0) * 20 * leadSec;
+          const latBlend = Math.min(1, dt * 14);
+          const dz = this.shortestDeltaZ(rc.z, targetZ);
           if (Math.abs(dz) > 1500) {
-            rc.z = rs.z || 0;
-          } else {
-            rc.z = this.wrapZ(rc.z + dz * posBlend);
+            rc.z = targetZ;
+            rc.totalDistance = targetTd;
+          } else if (Math.abs(dz) > 45) {
+            // Correção suave sem puxar o carro para trás bruscamente
+            const corrRate = (dz > 0) ? Math.min(1, dt * 6) : Math.min(1, dt * 2.5);
+            rc.z = this.wrapZ(rc.z + dz * corrRate);
           }
           rc.x += ((rs.x || 0) - rc.x) * latBlend;
-          rc.speed += ((rs.speed || 0) - rc.speed) * latBlend;
+          rc.speed += ((rs.speed || 0) - rc.speed) * Math.min(1, dt * 12);
           rc.steer = rs.steer || 0;
           rc.isNitro = !!rs.isNitro;
           rc.lap = rs.lap || rc.lap;
           if (rs.td !== undefined) {
-            rc.totalDistance += (rs.td - rc.totalDistance) * posBlend;
+            const dtd = targetTd - rc.totalDistance;
+            if (Math.abs(dtd) > 1500) rc.totalDistance = targetTd;
+            else if (Math.abs(dtd) > 45) rc.totalDistance += dtd * Math.min(1, dt * 5);
           }
           if (rs.finished && !rc.finished) {
             rc.finished = true;

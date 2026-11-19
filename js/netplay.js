@@ -1,7 +1,8 @@
 /**
  * LH44 - LOW TO HIGH SPEED
- * Gerenciador de Multiplayer Online 2P via Firebase Realtime Database
- * Isolado do fluxo solo para manter 100% de compatibilidade offline/single-player.
+ * Gerenciador de Multiplayer Online 2P:
+ * - Usa WebRTC DataChannel (P2P direto, baixa latência, estilo UDP) quando disponível
+ * - Usa Firebase Realtime Database para sinalização e como fallback automático
  */
 
 const LH44_FIREBASE_CONFIG = {
@@ -30,6 +31,12 @@ class NetplayManager {
     this.lastSendTime = 0;
     this.lastBotsSendTime = 0;
     this._listeners = [];
+
+    // WebRTC P2P DataChannel
+    this.pc = null;
+    this.dc = null;
+    this.p2pOpen = false;
+    this._iceApplied = new Set();
   }
 
   isAvailable() {
@@ -144,11 +151,126 @@ class NetplayManager {
         guestReady: false
       });
       this.attachListeners();
+      this.startWebRTC();
       return true;
     } catch (e) {
       this.errorMsg = 'Erro ao entrar na sala.';
       return false;
     }
+  }
+
+  setupDataChannel(dc) {
+    this.dc = dc;
+    dc.onopen = () => {
+      this.p2pOpen = true;
+    };
+    dc.onclose = () => {
+      this.p2pOpen = false;
+    };
+    dc.onerror = () => {
+      this.p2pOpen = false;
+    };
+    dc.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === 'p') {
+          this.remoteState = msg.d;
+        } else if (msg.type === 'b' && this.role === 'GUEST') {
+          this.remoteBots = msg.d;
+        }
+      } catch (_) {}
+    };
+  }
+
+  startWebRTC() {
+    if (typeof RTCPeerConnection === 'undefined' || !this.roomRef) return;
+    this.closeWebRTC();
+    try {
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+      });
+      this.pc = pc;
+      this._iceApplied = new Set();
+
+      const rtcRef = this.roomRef.child('rtc');
+      const localIceKey = (this.role === 'HOST') ? 'hostIce' : 'guestIce';
+      const remoteIceKey = (this.role === 'HOST') ? 'guestIce' : 'hostIce';
+
+      pc.onicecandidate = (ev) => {
+        if (ev.candidate && this.roomRef) {
+          rtcRef.child(localIceKey).push(ev.candidate.toJSON()).catch(() => {});
+        }
+      };
+
+      const iceRef = rtcRef.child(remoteIceKey);
+      const onIce = (snap) => {
+        const val = snap.val();
+        if (!val || !this.pc) return;
+        const keys = Object.keys(val);
+        for (let i = 0; i < keys.length; i++) {
+          const k = keys[i];
+          if (this._iceApplied.has(k)) continue;
+          this._iceApplied.add(k);
+          try {
+            this.pc.addIceCandidate(new RTCIceCandidate(val[k])).catch(() => {});
+          } catch (_) {}
+        }
+      };
+      iceRef.on('value', onIce);
+      this._listeners.push({ ref: iceRef, evt: 'value', fn: onIce });
+
+      if (this.role === 'HOST') {
+        const dc = pc.createDataChannel('lh44', { ordered: false, maxRetransmits: 0 });
+        this.setupDataChannel(dc);
+        pc.createOffer().then((offer) => {
+          return pc.setLocalDescription(offer).then(() => {
+            return rtcRef.child('offer').set({ type: offer.type, sdp: offer.sdp });
+          });
+        }).catch(() => {});
+
+        const ansRef = rtcRef.child('answer');
+        const onAns = (snap) => {
+          const ans = snap.val();
+          if (ans && this.pc && !this.pc.currentRemoteDescription) {
+            this.pc.setRemoteDescription(new RTCSessionDescription(ans)).catch(() => {});
+          }
+        };
+        ansRef.on('value', onAns);
+        this._listeners.push({ ref: ansRef, evt: 'value', fn: onAns });
+      } else {
+        pc.ondatachannel = (ev) => {
+          if (ev.channel) this.setupDataChannel(ev.channel);
+        };
+        const offRef = rtcRef.child('offer');
+        const onOff = (snap) => {
+          const off = snap.val();
+          if (off && this.pc && !this.pc.currentRemoteDescription) {
+            this.pc.setRemoteDescription(new RTCSessionDescription(off))
+              .then(() => this.pc.createAnswer())
+              .then((ans) => this.pc.setLocalDescription(ans).then(() => rtcRef.child('answer').set({ type: ans.type, sdp: ans.sdp })))
+              .catch(() => {});
+          }
+        };
+        offRef.on('value', onOff);
+        this._listeners.push({ ref: offRef, evt: 'value', fn: onOff });
+      }
+    } catch (_) {}
+  }
+
+  closeWebRTC() {
+    this.p2pOpen = false;
+    if (this.dc) {
+      try { this.dc.close(); } catch (_) {}
+      this.dc = null;
+    }
+    if (this.pc) {
+      try { this.pc.close(); } catch (_) {}
+      this.pc = null;
+    }
+    this._iceApplied = new Set();
   }
 
   attachListeners() {
@@ -165,8 +287,12 @@ class NetplayManager {
         this.errorMsg = 'A sala foi encerrada pelo Host.';
         return;
       }
+      const hadGuest = !!(this.meta && this.meta.guestName);
       this.meta = val;
       this.status = val.status || 'LOBBY';
+      if (this.role === 'HOST' && val.guestName && (!hadGuest || !this.pc)) {
+        this.startWebRTC();
+      }
     };
     metaRef.on('value', onMeta);
     this._listeners.push({ ref: metaRef, evt: 'value', fn: onMeta });
@@ -174,7 +300,9 @@ class NetplayManager {
     const remoteKey = (this.role === 'HOST') ? 'guestState' : 'hostState';
     const remRef = this.roomRef.child(remoteKey);
     const onRem = (snap) => {
-      this.remoteState = snap.val() || null;
+      if (!this.p2pOpen) {
+        this.remoteState = snap.val() || null;
+      }
     };
     remRef.on('value', onRem);
     this._listeners.push({ ref: remRef, evt: 'value', fn: onRem });
@@ -182,7 +310,9 @@ class NetplayManager {
     if (this.role === 'GUEST') {
       const botsRef = this.roomRef.child('bots');
       const onBots = (snap) => {
-        this.remoteBots = snap.val() || null;
+        if (!this.p2pOpen) {
+          this.remoteBots = snap.val() || null;
+        }
       };
       botsRef.on('value', onBots);
       this._listeners.push({ ref: botsRef, evt: 'value', fn: onBots });
@@ -214,7 +344,15 @@ class NetplayManager {
   sendPlayerState(stateObj, force = false) {
     if (!this.roomRef || !this.role) return;
     const now = performance.now();
-    if (!force && now - this.lastSendTime < 50) return; // ~20 Hz
+    if (this.p2pOpen && this.dc && this.dc.readyState === 'open') {
+      if (!force && now - this.lastSendTime < 22) return; // ~45 Hz direto P2P
+      this.lastSendTime = now;
+      try {
+        this.dc.send(JSON.stringify({ type: 'p', d: stateObj }));
+        return;
+      } catch (_) {}
+    }
+    if (!force && now - this.lastSendTime < 55) return; // ~18 Hz fallback Firebase
     this.lastSendTime = now;
     const key = (this.role === 'HOST') ? 'hostState' : 'guestState';
     this.roomRef.child(key).set(stateObj).catch(() => {});
@@ -223,12 +361,21 @@ class NetplayManager {
   sendBotsState(botsCompact) {
     if (!this.roomRef || this.role !== 'HOST') return;
     const now = performance.now();
-    if (now - this.lastBotsSendTime < 85) return; // ~12 Hz
+    if (this.p2pOpen && this.dc && this.dc.readyState === 'open') {
+      if (now - this.lastBotsSendTime < 35) return; // ~28 Hz direto P2P
+      this.lastBotsSendTime = now;
+      try {
+        this.dc.send(JSON.stringify({ type: 'b', d: botsCompact }));
+        return;
+      } catch (_) {}
+    }
+    if (now - this.lastBotsSendTime < 90) return; // ~11 Hz fallback Firebase
     this.lastBotsSendTime = now;
     this.roomRef.child('bots').set(botsCompact).catch(() => {});
   }
 
   async leaveRoom() {
+    this.closeWebRTC();
     this.detachListeners();
     if (this.roomRef) {
       try {
