@@ -1040,39 +1040,51 @@
 
       // 18 bots nas posições P1..P18
       for (let i = 0; i < 18; i++) {
-        const slot = i;
-        const profile = this.seasonBots[slot];
+        const slot = i + 1;
+        const profile = this.seasonBots[i];
         const bModel = profile.model;
         const bColor = profile.color;
-        const gridPos = i + 1;
-        const z = this.wrapZ(-(gridPos * 165));
-        const x = (i % 2 === 0) ? -0.34 : 0.34;
-        const bot = new Car(i + 1, bModel, bColor, false, z, x);
+        const rowFromBack = Math.floor((TOTAL_RACERS - slot) / 2);
+        const isLeft = (slot % 2 === 1);
+        const z = 1600 + rowFromBack * GRID_ROW_SPACING + (isLeft ? GRID_STAGGER_Z : 0);
+        const x = isLeft ? -GRID_COL_X : GRID_COL_X;
+        const bot = new Car(i + 1, bModel, false);
+        bot.bodyColor = (bColor && bColor.hex) ? bColor.hex : bColor;
         bot.driverCode = profile.driver.code;
         bot.driverName = profile.driver.name;
         bot.aiPersonality = profile.aiPersonality || 'TECHNICAL';
         bot.aiSkill = profile.baseAiSkill || 0.90;
-        bot.launchDelay = 0.08 + i * 0.025;
+        bot.launchDelay = 0.04 + ((slot - 1) * 0.01) + Math.random() * 0.14;
+        bot.z = z;
+        bot.x = x;
         bot.gridStartX = x;
         bot.targetX = x;
         this.cars.push(bot);
       }
 
-      // Host em P19 (-0.34), Guest em P20 (+0.34)
+      // Host em P19 (-GRID_COL_X), Guest em P20 (+GRID_COL_X)
       const hostModel = CAR_MODELS[meta.hostCarIndex || 0] || CAR_MODELS[0];
-      const hostColor = CAR_COLOR_PALETTE[meta.hostColorIndex || 0] || CAR_COLOR_PALETTE[0];
+      const hostColor = CAR_COLORS[meta.hostColorIndex || 0] || CAR_COLORS[0];
       const guestModel = CAR_MODELS[meta.guestCarIndex || 0] || CAR_MODELS[0];
-      const guestColor = CAR_COLOR_PALETTE[meta.guestColorIndex || 0] || CAR_COLOR_PALETTE[0];
+      const guestColor = CAR_COLORS[meta.guestColorIndex || 0] || CAR_COLORS[0];
 
-      const hostZ = this.wrapZ(-(19 * 165));
-      const guestZ = this.wrapZ(-(20 * 165));
+      const hostZ = 1600 + GRID_STAGGER_Z;
+      const guestZ = 1600;
 
-      const hostCar = new Car(isHost ? 0 : 19, hostModel, hostColor, isHost, hostZ, -0.34);
+      const hostCar = new Car(isHost ? 0 : 19, hostModel, isHost);
+      hostCar.bodyColor = hostColor.hex;
+      hostCar.z = hostZ;
+      hostCar.x = -GRID_COL_X;
+      hostCar.targetX = hostCar.x;
       hostCar.driverName = meta.hostName || 'HOST';
       hostCar.driverCode = (meta.hostName || 'HST').slice(0, 3).toUpperCase();
       hostCar.isRemote = !isHost;
 
-      const guestCar = new Car(isHost ? 19 : 0, guestModel, guestColor, !isHost, guestZ, 0.34);
+      const guestCar = new Car(isHost ? 19 : 0, guestModel, !isHost);
+      guestCar.bodyColor = guestColor.hex;
+      guestCar.z = guestZ;
+      guestCar.x = GRID_COL_X;
+      guestCar.targetX = guestCar.x;
       guestCar.driverName = meta.guestName || 'AMIGO';
       guestCar.driverCode = (meta.guestName || 'AMG').slice(0, 3).toUpperCase();
       guestCar.isRemote = isHost;
@@ -1492,7 +1504,7 @@
               this.audio.playBeep(440, 0.05);
               updateMyCar();
             } else if (hit(L.btnColNext, click)) {
-              this.colorIndex = (this.colorIndex + 1) % CAR_COLOR_PALETTE.length;
+              this.colorIndex = (this.colorIndex + 1) % CAR_COLORS.length;
               this.audio.playBeep(440, 0.05);
               updateMyCar();
             } else if (isHost && hit(L.btnTrkPrev, click)) {
@@ -1521,6 +1533,15 @@
                 this.audio.playBeep(220, 0.12);
               }
             }
+          }
+        }
+
+        if (sub === 'ROOM' && this.input.justPressedEnter && np && np.role === 'HOST' && np.meta) {
+          if (np.meta.guestName && np.meta.hostReady && np.meta.guestReady) {
+            const nextSeq = (np.meta.raceSeq || 0) + 1;
+            np.updateMeta({ status: 'RACING', raceSeq: nextSeq });
+          } else {
+            this.audio.playBeep(220, 0.12);
           }
         }
 
