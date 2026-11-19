@@ -202,6 +202,15 @@ class NetplayManager {
     this.roomRef.child('meta').update(patch).catch(() => {});
   }
 
+  clearRaceState() {
+    this.remoteState = null;
+    this.remoteBots = null;
+    if (!this.roomRef || this.role !== 'HOST') return;
+    this.roomRef.child('hostState').remove().catch(() => {});
+    this.roomRef.child('guestState').remove().catch(() => {});
+    this.roomRef.child('bots').remove().catch(() => {});
+  }
+
   sendPlayerState(stateObj, force = false) {
     if (!this.roomRef || !this.role) return;
     const now = performance.now();

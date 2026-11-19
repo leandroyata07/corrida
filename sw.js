@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lh44-cache-v43';
+const CACHE_NAME = 'lh44-cache-v44';
 const ASSETS = [
   './',
   './index.html',

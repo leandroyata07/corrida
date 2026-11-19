@@ -431,6 +431,16 @@
         if (actionIdx === 0) {
           this.pauseDialog = null;
           if (this.audio) this.audio.playBeep(523, 0.12);
+          if (this.isOnlineRace && this.netplay && this.netplay.connected) {
+            const nextSeq = ((this.netplay.meta && this.netplay.meta.raceSeq) || 0) + 1;
+            if (this.netplay.meta) {
+              this.netplay.meta.status = 'RACING';
+              this.netplay.meta.raceSeq = nextSeq;
+            }
+            this.netplay.updateMeta({ status: 'RACING', raceSeq: nextSeq });
+            this.startOnlineRace();
+            return;
+          }
           this.loadTrack(this.trackIndex);
           this.startRaceCountdown();
         } else {
@@ -993,6 +1003,11 @@
       if (!this.netplay || !this.netplay.meta) return;
       const meta = this.netplay.meta;
       this.onlineRaceSeq = meta.raceSeq || 1;
+      this.netplay.remoteState = null;
+      this.netplay.remoteBots = null;
+      if (this.netplay.role === 'HOST') {
+        this.netplay.clearRaceState();
+      }
       this.isOnlineRace = true;
       this.gameMode = 'QUICK_RACE';
       this.diffMode = 'NORMAL';
@@ -1076,7 +1091,7 @@
       const guestModel = CAR_MODELS[meta.guestCarIndex || 0] || CAR_MODELS[0];
       const guestColor = CAR_COLORS[meta.guestColorIndex || 0] || CAR_COLORS[0];
 
-      const hostZ = 1600 + GRID_STAGGER_Z;
+      const hostZ = 1600 + 120;
       const guestZ = 1600;
 
       const hostCar = new Car(isHost ? 0 : 19, hostModel, isHost);
@@ -1114,59 +1129,97 @@
 
     syncOnlineRace(dt) {
       if (!this.isOnlineRace || !this.netplay || !this.netplay.connected) return;
+      const np = this.netplay;
+      if (np.meta && np.meta.status === 'RACING' && np.meta.raceSeq && np.meta.raceSeq !== this.onlineRaceSeq) {
+        this.startOnlineRace();
+        return;
+      }
+
       const p = this.player;
-      if (p) {
-        this.netplay.sendPlayerState({
+      if (p && this.state === 'RACING') {
+        np.sendPlayerState({
           z: Math.round(p.z),
           x: +p.x.toFixed(3),
           speed: Math.round(p.speed),
           steer: +(p.steer || 0).toFixed(2),
           isNitro: !!p.isNitro,
           lap: p.lap || 1,
+          td: Math.round(p.totalDistance || 0),
           finished: !!p.finished,
           finishTime: p.finishTime || 0
         }, !!p.finished);
       }
 
-      if (this.netplay.role === 'HOST') {
-        const botsCompact = [];
-        for (let i = 0; i < this.cars.length; i++) {
-          const c = this.cars[i];
-          if (c.isPlayer || c.isRemote) continue;
-          botsCompact.push([Math.round(c.z), +c.x.toFixed(3), Math.round(c.speed)]);
+      if (np.role === 'HOST') {
+        if (this.state === 'RACING') {
+          const botsCompact = [];
+          for (let i = 0; i < this.cars.length; i++) {
+            const c = this.cars[i];
+            if (c.isPlayer || c.isRemote) continue;
+            botsCompact.push([Math.round(c.z), +c.x.toFixed(3), Math.round(c.speed), Math.round(c.totalDistance || 0)]);
+          }
+          np.sendBotsState(botsCompact);
         }
-        this.netplay.sendBotsState(botsCompact);
-      } else if (this.netplay.remoteBots && Array.isArray(this.netplay.remoteBots)) {
-        const rb = this.netplay.remoteBots;
+      } else {
+        const rb = np.remoteBots;
         let bIdx = 0;
-        const alpha = Math.min(1, dt * 12);
+        const posBlend = Math.min(1, dt * 8);
+        const latBlend = Math.min(1, dt * 10);
         for (let i = 0; i < this.cars.length; i++) {
           const c = this.cars[i];
           if (c.isPlayer || c.isRemote) continue;
-          const entry = rb[bIdx++];
+          // Dead-reckoning contínuo a 60 FPS para não piscar nem dar saltos no celular
+          if (this.state === 'RACING' && c.speed > 0) {
+            const stepZ = c.speed * 20 * dt;
+            c.z = this.wrapZ(c.z + stepZ);
+            c.totalDistance += stepZ;
+          }
+          const entry = (rb && Array.isArray(rb)) ? rb[bIdx++] : null;
           if (!entry) continue;
           const dz = this.shortestDeltaZ(c.z, entry[0]);
-          c.z = this.wrapZ(c.z + dz * alpha);
-          c.x += (entry[1] - c.x) * alpha;
-          c.speed += (entry[2] - c.speed) * alpha;
+          if (Math.abs(dz) > 1500) {
+            c.z = entry[0];
+          } else {
+            c.z = this.wrapZ(c.z + dz * posBlend);
+          }
+          c.x += (entry[1] - c.x) * latBlend;
+          c.speed += (entry[2] - c.speed) * latBlend;
+          if (entry[3] !== undefined) {
+            c.totalDistance += (entry[3] - c.totalDistance) * posBlend;
+          }
         }
       }
 
-      const rs = this.netplay.remoteState;
+      const rs = np.remoteState;
       const rc = this.remoteCar;
-      if (rs && rc) {
-        const alpha = Math.min(1, dt * 15);
-        const dz = this.shortestDeltaZ(rc.z, rs.z || 0);
-        rc.z = this.wrapZ(rc.z + dz * alpha);
-        rc.x += ((rs.x || 0) - rc.x) * alpha;
-        rc.speed += ((rs.speed || 0) - rc.speed) * alpha;
-        rc.steer = rs.steer || 0;
-        rc.isNitro = !!rs.isNitro;
-        rc.lap = rs.lap || rc.lap;
-        if (rs.finished && !rc.finished) {
-          rc.finished = true;
-          rc.finishTime = rs.finishTime || this.raceTimer;
-          if (!this.finishOrder.includes(rc)) this.finishOrder.push(rc);
+      if (rc) {
+        if (this.state === 'RACING' && rc.speed > 0) {
+          const stepZ = rc.speed * 20 * dt;
+          rc.z = this.wrapZ(rc.z + stepZ);
+          rc.totalDistance += stepZ;
+        }
+        if (rs) {
+          const posBlend = Math.min(1, dt * 10);
+          const latBlend = Math.min(1, dt * 12);
+          const dz = this.shortestDeltaZ(rc.z, rs.z || 0);
+          if (Math.abs(dz) > 1500) {
+            rc.z = rs.z || 0;
+          } else {
+            rc.z = this.wrapZ(rc.z + dz * posBlend);
+          }
+          rc.x += ((rs.x || 0) - rc.x) * latBlend;
+          rc.speed += ((rs.speed || 0) - rc.speed) * latBlend;
+          rc.steer = rs.steer || 0;
+          rc.isNitro = !!rs.isNitro;
+          rc.lap = rs.lap || rc.lap;
+          if (rs.td !== undefined) {
+            rc.totalDistance += (rs.td - rc.totalDistance) * posBlend;
+          }
+          if (rs.finished && !rc.finished) {
+            rc.finished = true;
+            rc.finishTime = rs.finishTime || this.raceTimer;
+            if (!this.finishOrder.includes(rc)) this.finishOrder.push(rc);
+          }
         }
       }
     }
@@ -1335,6 +1388,11 @@
         } else {
           btnB.classList.remove('active');
         }
+      }
+
+      if (this.isOnlineRace && (this.state === 'COUNTDOWN' || this.state === 'PAUSED') && this.netplay && this.netplay.meta && this.netplay.meta.status === 'RACING' && this.netplay.meta.raceSeq && this.netplay.meta.raceSeq !== this.onlineRaceSeq) {
+        this.startOnlineRace();
+        return;
       }
 
       if (this.state === 'MENU') {
@@ -4515,6 +4573,11 @@
           ctx.fillRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT);
           ctx.restore();
         }
+      }
+
+      if (this.isOnlineRace && (this.state === 'COUNTDOWN' || this.state === 'PAUSED') && this.netplay && this.netplay.meta && this.netplay.meta.status === 'RACING' && this.netplay.meta.raceSeq && this.netplay.meta.raceSeq !== this.onlineRaceSeq) {
+        this.startOnlineRace();
+        return;
       }
 
       if (this.state === 'MENU') {
