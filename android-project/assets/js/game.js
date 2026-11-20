@@ -1008,7 +1008,16 @@
       }
       const oMode = np.meta.onlineMode || 'QUICK';
       const nextSeq = (np.meta.raceSeq || 0) + 1;
-      const patch = { status: 'RACING', raceSeq: nextSeq };
+      if (!this.seasonBots || this.seasonBots.length < 19) {
+        this.initSeasonRoster();
+      }
+      const botRoster = [];
+      for (let i = 0; i < 18; i++) {
+        const prof = this.seasonBots[i];
+        const mIdx = CAR_MODELS.indexOf(prof.model);
+        botRoster.push([mIdx >= 0 ? mIdx : (i % CAR_MODELS.length), prof.bodyColor || '#64748B']);
+      }
+      const patch = { status: 'RACING', raceSeq: nextSeq, botRoster };
       if (oMode !== 'QUICK' && (!np.meta.seasonSchedule || np.meta.seasonSchedule.length === 0 || (np.meta.seasonStage || 0) === 0)) {
         let sched = [];
         if (oMode === 'CHAMP_31') {
@@ -1160,16 +1169,19 @@
       };
 
       // 18 bots nas posições P1..P18
+      const syncedRoster = (meta.botRoster && Array.isArray(meta.botRoster)) ? meta.botRoster : null;
       for (let i = 0; i < 18; i++) {
         const slot = i + 1;
         const profile = this.seasonBots[i];
-        const bModel = profile.model;
+        const rEntry = syncedRoster && syncedRoster[i];
+        const bModel = (rEntry && CAR_MODELS[rEntry[0]]) ? CAR_MODELS[rEntry[0]] : profile.model;
+        const bColor = (rEntry && rEntry[1]) ? rEntry[1] : (profile.bodyColor || '#64748B');
         const rowFromBack = Math.floor((TOTAL_RACERS - slot) / 2);
         const isLeft = (slot % 2 === 1);
         const z = 1600 + rowFromBack * GRID_ROW_SPACING + (isLeft ? GRID_STAGGER_Z : 0);
         const x = isLeft ? -GRID_COL_X : GRID_COL_X;
         const bot = new Car(i + 1, bModel, false);
-        bot.bodyColor = profile.bodyColor || '#64748B';
+        bot.bodyColor = bColor;
         bot.driverCode = profile.driverCode || 'BOT';
         bot.driverName = profile.driverName || 'PILOTO';
         bot.effectiveMaxSpeed = (this.diffMode === 'ADVANCED') ? 280 : (bModel.maxSpeed || 220);
@@ -1268,12 +1280,13 @@
       } else {
         const rb = np.remoteBots;
         let bIdx = 0;
-        const posBlend = Math.min(1, dt * 8);
-        const latBlend = Math.min(1, dt * 10);
+        const leadSec = np.p2pOpen ? 0.015 : 0.11;
+        const latBlend = Math.min(1, dt * 12);
+        const spdBlend = Math.min(1, dt * 10);
         for (let i = 0; i < this.cars.length; i++) {
           const c = this.cars[i];
           if (c.isPlayer || c.isRemote) continue;
-          // Dead-reckoning contínuo a 60 FPS para não piscar nem dar saltos no celular
+          // Dead-reckoning contínuo a 60 FPS para não piscar nem dar saltos
           if (this.state === 'RACING' && c.speed > 0) {
             const stepZ = c.speed * 20 * dt;
             c.z = this.wrapZ(c.z + stepZ);
@@ -1281,16 +1294,23 @@
           }
           const entry = (rb && Array.isArray(rb)) ? rb[bIdx++] : null;
           if (!entry) continue;
-          const dz = this.shortestDeltaZ(c.z, entry[0]);
+          const bSpeed = entry[2] || 0;
+          const targetZ = this.wrapZ(entry[0] + bSpeed * 20 * leadSec);
+          const dz = this.shortestDeltaZ(c.z, targetZ);
           if (Math.abs(dz) > 1500) {
-            c.z = entry[0];
-          } else {
-            c.z = this.wrapZ(c.z + dz * posBlend);
+            c.z = targetZ;
+            if (entry[3] !== undefined) c.totalDistance = entry[3] + bSpeed * 20 * leadSec;
+          } else if (Math.abs(dz) > 45) {
+            const corrRate = (dz > 0) ? Math.min(1, dt * 6) : Math.min(1, dt * 2.5);
+            c.z = this.wrapZ(c.z + dz * corrRate);
           }
           c.x += (entry[1] - c.x) * latBlend;
-          c.speed += (entry[2] - c.speed) * latBlend;
+          c.speed += (bSpeed - c.speed) * spdBlend;
           if (entry[3] !== undefined) {
-            c.totalDistance += (entry[3] - c.totalDistance) * posBlend;
+            const targetTd = entry[3] + bSpeed * 20 * leadSec;
+            const dtd = targetTd - c.totalDistance;
+            if (Math.abs(dtd) > 1500) c.totalDistance = targetTd;
+            else if (Math.abs(dtd) > 45) c.totalDistance += dtd * Math.min(1, dt * 5);
           }
         }
       }

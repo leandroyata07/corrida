@@ -498,6 +498,12 @@
         }
       }
 
+      // Versão discreta no canto inferior direito da tela inicial
+      ctx.textAlign = 'right';
+      ctx.font = 'bold 5.5px monospace';
+      ctx.fillStyle = 'rgba(203, 213, 225, 0.72)';
+      ctx.fillText('V2.0', INTERNAL_WIDTH - 6, INTERNAL_HEIGHT - 5);
+
       ctx.restore();
     }
 

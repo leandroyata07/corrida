@@ -608,6 +608,10 @@
       // Linha 1: Tempo Atual (Rótulo em Amarelo Dourado #FFD700)
       drawPixelText('ATUAL', hudDataLeft, topY + 6, '#FFD700', 'bold 5px monospace', 'left');
       drawPixelText(this.formatTime(this.currentLapTime), rightEdge, topY + 6, '#00E5FF', 'bold 6.2px monospace', 'right');
+      if (this.isOnlineRace && this.netplay) {
+        const isP2P = !!this.netplay.p2pOpen;
+        drawPixelText(isP2P ? '⚡P2P' : '☁FB', rightEdge, topY - 1, isP2P ? '#34D399' : '#FBBF24', 'bold 4.4px monospace', 'right');
+      }
 
       // Linha 2: Melhor Volta (Rótulo em Amarelo Dourado #FFD700)
       const bestStr = this.bestLapTime > 0 ? this.formatTime(this.bestLapTime) : '--:--.--';
