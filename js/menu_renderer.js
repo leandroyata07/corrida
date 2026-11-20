@@ -589,7 +589,7 @@
       ctx.fillStyle = '#FFD700';
       ctx.font = 'bold 9.5px monospace';
       ctx.fillText(`SALA: ${code}   (${isHost ? 'VOCÊ É O HOST' : 'CONVIDADO'})`, cx, boxY + 13);
-      if (np && meta.guestName) {
+      if (np && np.connected) {
         ctx.fillStyle = '#34D399';
         ctx.font = 'bold 5.2px monospace';
         ctx.fillText('⚡ SERVIDOR SÃO PAULO (SUPABASE REALTIME)', cx, boxY + 20);
