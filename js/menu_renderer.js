@@ -590,9 +590,9 @@
       ctx.font = 'bold 9.5px monospace';
       ctx.fillText(`SALA: ${code}   (${isHost ? 'VOCÊ É O HOST' : 'CONVIDADO'})`, cx, boxY + 13);
       if (np && meta.guestName) {
-        ctx.fillStyle = np.p2pOpen ? '#34D399' : '#94A3B8';
+        ctx.fillStyle = '#34D399';
         ctx.font = 'bold 5.2px monospace';
-        ctx.fillText(np.p2pOpen ? '⚡ P2P DIRETO ATIVO (BAIXA LATÊNCIA)' : '☁ VIA SERVIDOR FIREBASE', cx, boxY + 20);
+        ctx.fillText('⚡ SERVIDOR SÃO PAULO (SUPABASE REALTIME)', cx, boxY + 20);
       }
 
       // Cards Host vs Convidado

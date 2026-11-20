@@ -296,6 +296,7 @@
       this.seasonStage = 0;
 
       this.countdown = 3.6;
+      this.onlineWaitGoTimer = 0;
       this.startLightsStage = 0;
       this.greenLightsTimer = 0;
 
@@ -1126,6 +1127,7 @@
 
       this.setupOnlineRaceGrid();
       this.countdown = 3.6;
+      this.onlineWaitGoTimer = 0;
       this.startLightsStage = 0;
       this.greenLightsTimer = 0;
       this.raceTimer = 0;
@@ -1280,7 +1282,7 @@
       } else {
         const rb = np.remoteBots;
         let bIdx = 0;
-        const leadSec = np.p2pOpen ? 0.015 : 0.11;
+        const leadSec = 0.025;
         const latBlend = Math.min(1, dt * 12);
         const spdBlend = Math.min(1, dt * 10);
         for (let i = 0; i < this.cars.length; i++) {
@@ -1324,7 +1326,7 @@
           rc.totalDistance += stepZ;
         }
         if (rs) {
-          const leadSec = np.p2pOpen ? 0.015 : 0.11;
+          const leadSec = 0.025;
           const targetZ = this.wrapZ((rs.z || 0) + (rs.speed || 0) * 20 * leadSec);
           const targetTd = (rs.td || 0) + (rs.speed || 0) * 20 * leadSec;
           const latBlend = Math.min(1, dt * 14);
@@ -1380,6 +1382,7 @@
       this.setupRaceGrid();
       this.state = 'COUNTDOWN';
       this.countdown = 3.6;
+      this.onlineWaitGoTimer = 0;
       this.startLightsStage = 0;
       this.greenLightsTimer = 0;
       this.finishingRace = false;
@@ -3297,6 +3300,17 @@
             this.audio.playBeep(440, 0.15);
           }
         } else {
+          if (this.isOnlineRace && this.netplay && this.netplay.role === 'GUEST' && !this.netplay.raceGoReceived) {
+            this.onlineWaitGoTimer = (this.onlineWaitGoTimer || 0) + dt;
+            if (this.onlineWaitGoTimer < 1.5) {
+              this.countdown = 0.01;
+              this.updateEnv(dt);
+              return;
+            }
+          }
+          if (this.isOnlineRace && this.netplay && this.netplay.role === 'HOST') {
+            this.netplay.sendRaceGo();
+          }
           this.startLightsStage = 5; // LUZES VERDES: LARGADA IMEDIATA!
           this.greenLightsTimer = 0.85;
           this.audio.playBeep(880, 0.35);
