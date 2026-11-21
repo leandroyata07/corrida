@@ -1210,7 +1210,7 @@
       const guestModel = CAR_MODELS[meta.guestCarIndex || 0] || CAR_MODELS[0];
       const guestColor = CAR_COLORS[meta.guestColorIndex || 0] || CAR_COLORS[0];
 
-      const hostZ = 1600 + 120;
+      const hostZ = 1600;
       const guestZ = 1600;
 
       const hostCar = new Car(isHost ? 0 : 19, hostModel, isHost);
@@ -1298,7 +1298,7 @@
           if (!entry) continue;
           const bSpeed = entry[2] || 0;
           const targetZ = this.wrapZ(entry[0] + bSpeed * 20 * leadSec);
-          const dz = this.shortestDeltaZ(c.z, targetZ);
+          const dz = this.shortestDeltaZ(targetZ, c.z);
           if (Math.abs(dz) > 1500) {
             c.z = targetZ;
             if (entry[3] !== undefined) c.totalDistance = entry[3] + bSpeed * 20 * leadSec;
@@ -1330,7 +1330,7 @@
           const targetZ = this.wrapZ((rs.z || 0) + (rs.speed || 0) * 20 * leadSec);
           const targetTd = (rs.td || 0) + (rs.speed || 0) * 20 * leadSec;
           const latBlend = Math.min(1, dt * 14);
-          const dz = this.shortestDeltaZ(rc.z, targetZ);
+          const dz = this.shortestDeltaZ(targetZ, rc.z);
           if (Math.abs(dz) > 1500) {
             rc.z = targetZ;
             rc.totalDistance = targetTd;
