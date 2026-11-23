@@ -65,3 +65,23 @@ const GEAR_RATIOS = [
   { gear: 5, minRatio: 0.82, maxRatio: 1.00, minRpm: 4400, maxRpm: 7600 }
 ];
 
+const WHEEL_COLORS = [
+  { id: 'prata',   name: 'PRATA',   hex: '#CBD5E1' },
+  { id: 'preta',   name: 'PRETA',   hex: '#1E293B' },
+  { id: 'dourada', name: 'DOURADA', hex: '#EAB308' },
+  { id: 'branca',  name: 'BRANCA',  hex: '#F8FAFC' }
+];
+
+const STRIPE_STYLES = [
+  { id: 0, name: 'SEM FAIXA' },
+  { id: 1, name: 'FAIXA DUPLA' },
+  { id: 2, name: 'FAIXA CENTRAL' }
+];
+
+const REGIONAL_CUPS = [
+  { id: 'COPA_NE',  name: 'COPA NORDESTE',       codes: ['BA', 'PE', 'CE', 'AL', 'PB', 'RN', 'PI', 'MA', 'SE'] },
+  { id: 'COPA_SUL', name: 'COPA SUL',            codes: ['RS', 'SC', 'PR', 'SER'] },
+  { id: 'COPA_SE',  name: 'COPA SUDESTE',        codes: ['GP', 'RJ', 'MG', 'ES'] },
+  { id: 'COPA_NCO', name: 'COPA NORTE & C-OESTE', codes: ['AM', 'PA', 'AC', 'AP', 'RO', 'RR', 'DF', 'GO', 'MT', 'MS', 'TO'] }
+];
+

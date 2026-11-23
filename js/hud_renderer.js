@@ -853,6 +853,39 @@
             : (isSharp ? '! CURVA ▶▶' : 'CURVA ▶');
           ctx.fillText(warnTxt, INTERNAL_WIDTH / 2, pillY + 9);
         }
+
+        // Indicador / Barra de Progresso do Pit Lane Estratégico na Reta Principal
+        const curSeg = segs[curSegIdx];
+        if (this.player.inPitLane && this.pitProgress > 0) {
+          const pw = 136;
+          const ph = 16;
+          const px = Math.round((INTERNAL_WIDTH - pw) / 2);
+          const py = topY + 36;
+          ctx.fillStyle = 'rgba(6, 16, 28, 0.90)';
+          ctx.fillRect(px, py, pw, ph);
+          ctx.strokeStyle = '#00E676';
+          ctx.lineWidth = 1.2;
+          ctx.strokeRect(px, py, pw, ph);
+          ctx.fillStyle = '#00E676';
+          ctx.fillRect(px + 2, py + ph - 4, Math.round((pw - 4) * Math.min(1, this.pitProgress)), 2.5);
+          ctx.textAlign = 'center';
+          ctx.font = 'bold 6.4px monospace';
+          ctx.fillText(`🔧 BOX RELÂMPAGO: ${Math.round(this.pitProgress * 100)}%`, INTERNAL_WIDTH / 2, py + 8.5);
+        } else if (curSeg && curSeg.pitWall && this.player.laps >= 1 && this.player.pitUsedLap !== this.player.laps && this.player.nitroCharges < 3 && this.gameMode !== 'TIME_TRIAL') {
+          const bw = 110;
+          const bh = 11;
+          const bx = Math.round((INTERNAL_WIDTH - bw) / 2);
+          const by = topY + 36;
+          ctx.fillStyle = 'rgba(6, 16, 28, 0.78)';
+          ctx.fillRect(bx, by, bw, bh);
+          ctx.strokeStyle = '#00E5FF';
+          ctx.lineWidth = 0.8;
+          ctx.strokeRect(bx, by, bw, bh);
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#00E5FF';
+          ctx.font = 'bold 5.8px monospace';
+          ctx.fillText('◀ BOX ABERTO (ESQ)', INTERNAL_WIDTH / 2, by + 7.8);
+        }
       }
 
       // ========================================================
@@ -1099,16 +1132,16 @@
       const H = INTERNAL_HEIGHT;
 
       // Card amplo e elegante de personalização e pintura
-      const bW = touchSafe ? Math.min(W - 16, 280) : Math.min(W - 24, 330);
-      const bH = touchSafe ? 134 : 148;
+      const bW = touchSafe ? Math.min(W - 12, 290) : Math.min(W - 20, 340);
+      const bH = touchSafe ? 136 : 150;
       const bX = Math.round((W - bW) / 2);
-      const bY = touchSafe ? 18 : 20;
+      const bY = touchSafe ? 17 : 19;
 
-      // 10 Amostras de cores amplas e confortáveis para toque e controle
+      // 14 Amostras de cores confortáveis e bem espaçadas abaixo do badge
       const numColors = CAR_COLORS.length;
-      const swY = bY + (touchSafe ? 88 : 98);
-      const swR = touchSafe ? 6.2 : 7.6;
-      const swGap = touchSafe ? 19.5 : 23.5;
+      const swY = bY + (touchSafe ? 96 : 108);
+      const swR = touchSafe ? 5.2 : 6.2;
+      const swGap = touchSafe ? 18.0 : 21.6;
       const totalSwW = (numColors - 1) * swGap;
       const swStartX = W / 2 - totalSwW / 2;
       const sw = [];

@@ -91,16 +91,20 @@ const TrackRecords = {
     return all[trackId] || null;
   },
 
-  update(trackId, bestLap, rank) {
+  update(trackId, bestLap, rank, driverName = '', carName = '') {
     if (!trackId) return null;
     try {
       const all = this.getAll();
-      const prev = all[trackId] || { bestLap: 0, bestRank: 0 };
+      const prev = all[trackId] || { bestLap: 0, bestRank: 0, bestDriver: '', bestCar: '' };
       let changed = false;
+      let brokeLapRecord = false;
 
       if (bestLap > 0 && (prev.bestLap === 0 || bestLap < prev.bestLap)) {
         prev.bestLap = bestLap;
+        if (driverName) prev.bestDriver = driverName;
+        if (carName) prev.bestCar = carName;
         changed = true;
+        brokeLapRecord = true;
       }
       if (rank > 0 && (prev.bestRank === 0 || rank < prev.bestRank)) {
         prev.bestRank = rank;
@@ -110,7 +114,7 @@ const TrackRecords = {
         all[trackId] = prev;
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(all));
       }
-      return prev;
+      return { ...prev, brokeLapRecord };
     } catch (_) {
       return null;
     }

@@ -287,6 +287,20 @@
       this.onlineSubMode = 'CHOICE';
       this.onlineRaceSeq = 0;
       this.customChampionship = false;
+      this.quickKnockout = false;
+      this.pitProgress = 0;
+      this.champSubMode = 'OFFICIAL'; // OFFICIAL, CUSTOM, COPA_NE, COPA_SUL, COPA_SE, COPA_NCO
+      this.wheelColorIndex = 0;
+      this.stripeStyle = 0;
+      this.dynamicWeather = '';
+      this.dynamicWeatherTriggered = false;
+      this.stageObjective = null;
+      this.seasonRivalIndex = -1;
+      this.rivalBeaten = false;
+      this.overtakesCount = 0;
+      this.prevPlayerRank = 20;
+      this.lastObjectiveBonus = 0;
+      this.lastRivalBonus = 0;
       this.customSchedule = [];
       this.customCursorIndex = 0;
       this.customScheduleWarnTimer = 0;
@@ -749,7 +763,7 @@
       for (let i = 0; i < F1_DRIVERS.length && i < 19; i++) {
         const drv = F1_DRIVERS[i];
         const assignedModel = availableModels[i % availableModels.length] || CAR_MODELS[0];
-        const randColor = BOT_BODY_COLORS[i % BOT_BODY_COLORS.length];
+        const randColor = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)].hex;
         const baseSkill = 0.98 - (i * 0.007) + (Math.random() - 0.5) * 0.035;
         const pers = DRIVER_TRAITS[drv.code] || personalities[i % 3];
         this.seasonBots.push({
@@ -765,7 +779,35 @@
       this.seasonGridOrder = Array.from({ length: 19 }, (_, i) => i);
     }
 
+    getTrophies() {
+      try {
+        const raw = localStorage.getItem('lh44_trophies_v1');
+        return raw ? JSON.parse(raw) : [];
+      } catch (_) {
+        return [];
+      }
+    }
+
+    saveTrophyEntry(entry) {
+      try {
+        const list = this.getTrophies();
+        list.unshift(entry);
+        localStorage.setItem('lh44_trophies_v1', JSON.stringify(list.slice(0, 12)));
+      } catch (_) {}
+    }
+
     getChampionshipSchedule() {
+      if (this.champSubMode && this.champSubMode.startsWith('COPA_') && typeof REGIONAL_CUPS !== 'undefined') {
+        const cup = REGIONAL_CUPS.find(c => c.id === this.champSubMode);
+        if (cup && cup.codes) {
+          const indices = [];
+          for (let i = 0; i < TRACK_DEFINITIONS.length; i++) {
+            const st = TRACK_DEFINITIONS[i].stateCode;
+            if (cup.codes.includes(st)) indices.push(i);
+          }
+          if (indices.length > 0) return indices;
+        }
+      }
       // Retorna todos os índices de pistas do jogo, garantindo que São Paulo (SP) seja a grande final (última etapa)
       const spIndex = TRACK_DEFINITIONS.findIndex(t => t.id === 'sao_paulo' || t.stateCode === 'SP');
       const schedule = [];
@@ -929,6 +971,12 @@
       this.player.nitroCharges = 3;
       this.player.nitroTimer = 0;
       this.player.nitroDecayTimer = 0;
+      this.player.inPitLane = false;
+      this.player.pitTimer = 0;
+      this.player.pitUsedLap = -1;
+      this.player.eliminated = false;
+      this.pitProgress = 0;
+      this.lastEliminatedLap = 0;
       this.cars.push(this.player);
 
       this.currentGhostTrail = [];
@@ -954,6 +1002,43 @@
       this.finishFadeAlpha = 0;
       this.f1LeaderboardToggled = false;
       this.particlePool.clear();
+
+      // Clima Dinâmico, Objetivo da Etapa & Rival da Temporada
+      this.dynamicWeather = '';
+      this.dynamicWeatherTriggered = false;
+      this.stageObjective = null;
+      this.seasonRivalIndex = -1;
+      this.rivalBeaten = false;
+      this.overtakesCount = 0;
+      this.prevPlayerRank = TOTAL_RACERS;
+      this.lastObjectiveBonus = 0;
+      this.lastRivalBonus = 0;
+
+      if (this.gameMode !== 'TIME_TRIAL' && !this.isQualifying && !this.isOnlineRace) {
+        const curRain = (this.envTarget && this.envTarget.s) ? (this.envTarget.s.rain || 0) : 0;
+        const curSnow = (this.envTarget && this.envTarget.s) ? (this.envTarget.s.snow || 0) : 0;
+        if (curRain < 0.1 && curSnow < 0.1 && Math.random() < 0.35) {
+          this.dynamicWeather = (Math.random() < 0.65) ? 'RAIN' : 'DUSK';
+        }
+      }
+
+      if (this.gameMode === 'CHAMPIONSHIP' && !this.isOnlineRace) {
+        const objPool = [
+          { type: 'PODIUM',    label: 'CHEGAR NO TOP 3',         reward: 1500, done: false },
+          { type: 'OVERTAKES', label: 'FAZER 8+ ULTRAPASSAGENS', reward: 1200, done: false },
+          { type: 'TOP10',     label: 'CHEGAR NO TOP 10',        reward: 800,  done: false }
+        ];
+        this.stageObjective = objPool[(this.seasonStage || 0) % objPool.length];
+        if (this.seasonBots && this.seasonBots.length >= 19) {
+          const pPts = this.championshipPoints[0] || 0;
+          let bestBotId = 1, bestDiff = 999999;
+          for (let bi = 1; bi <= 19; bi++) {
+            const d = Math.abs((this.championshipPoints[bi] || 0) - pPts);
+            if (d < bestDiff) { bestDiff = d; bestBotId = bi; }
+          }
+          this.seasonRivalIndex = bestBotId;
+        }
+      }
     }
 
     setEnvCond(cond) {
@@ -1530,6 +1615,20 @@
         return;
       }
 
+      if (this.state === 'TROPHY_ROOM') {
+        this.audio.silenceEffects();
+        this.menuCameraZ = this.wrapZ(this.menuCameraZ + 850 * dt);
+        this.updateSkyScroll(dt);
+        this.updateEnv(dt);
+        if (this.input.lastCanvasClick || this.input.justPressedEnter || this.input.justPressedEsc) {
+          this.input.lastCanvasClick = null;
+          this.audio.playBeep(330, 0.06);
+          this.fadeTransition('MENU');
+        }
+        this.input.clearPulses();
+        return;
+      }
+
       if (this.state === 'MENU') {
         if (this.nameWrapper) this.nameWrapper.classList.remove('show');
         this.audio.silenceEffects();
@@ -1558,6 +1657,14 @@
           if (click.x >= INTERNAL_WIDTH - 38 && click.y <= 38) {
             const gearBtn = document.getElementById('gear-btn');
             if (gearBtn) gearBtn.click();
+            this.input.clearPulses();
+            return;
+          }
+
+          // Botão Sala de Troféus no canto superior esquerdo
+          if (click.x >= 6 && click.x <= 72 && click.y >= 6 && click.y <= 22) {
+            this.audio.playBeep(523, 0.08);
+            this.fadeTransition('TROPHY_ROOM');
             this.input.clearPulses();
             return;
           }
@@ -1818,12 +1925,15 @@
             return;
           }
 
-          // Clique no toggle Oficial vs Custom dentro do card 0
+          // Clique no toggle Oficial / Custom / Copas Regionais dentro do card 0
           if (L.btnChampType &&
               click.x >= L.btnChampType.x && click.x <= L.btnChampType.x + L.btnChampType.w &&
               click.y >= L.btnChampType.y && click.y <= L.btnChampType.y + L.btnChampType.h) {
             this.selectedModeIndex = 0;
-            this.customChampionship = !this.customChampionship;
+            const champCycle = ['OFFICIAL', 'CUSTOM', 'COPA_NE', 'COPA_SUL', 'COPA_SE', 'COPA_NCO'];
+            const cIdx = (champCycle.indexOf(this.champSubMode || 'OFFICIAL') + 1) % champCycle.length;
+            this.champSubMode = champCycle[cIdx];
+            this.customChampionship = (this.champSubMode === 'CUSTOM');
             this.audio.playBeep(523, 0.07);
           } else if (click.x >= L.card0.x && click.x <= L.card0.x + L.card0.w &&
               click.y >= L.card0.y && click.y <= L.card0.y + L.card0.h) {
@@ -1832,11 +1942,16 @@
             this.audio.playBeep(440, 0.06);
           }
 
-          // Clique no card 1 (Corrida Rápida) — seleciona sem avançar
+          // Clique no card 1 (Corrida Rápida / Eliminação) — se já selecionado, alterna Eliminação
           if (click.x >= L.card1.x && click.x <= L.card1.x + L.card1.w &&
               click.y >= L.card1.y && click.y <= L.card1.y + L.card1.h) {
-            this.selectedModeIndex = 1;
-            this.audio.playBeep(440, 0.06);
+            if (this.selectedModeIndex === 1) {
+              this.quickKnockout = !this.quickKnockout;
+              this.audio.playBeep(523, 0.06);
+            } else {
+              this.selectedModeIndex = 1;
+              this.audio.playBeep(440, 0.06);
+            }
           }
 
           // Clique no card 2 (Contra o Relógio / Time Trial) — seleciona sem avançar
@@ -1863,7 +1978,13 @@
         }
         if (this.input.justPressedUp || this.input.justPressedDown) {
           if (this.selectedModeIndex === 0) {
-            this.customChampionship = !this.customChampionship;
+            const champCycle = ['OFFICIAL', 'CUSTOM', 'COPA_NE', 'COPA_SUL', 'COPA_SE', 'COPA_NCO'];
+            const cIdx = (champCycle.indexOf(this.champSubMode || 'OFFICIAL') + 1) % champCycle.length;
+            this.champSubMode = champCycle[cIdx];
+            this.customChampionship = (this.champSubMode === 'CUSTOM');
+            this.audio.playBeep(523, 0.06);
+          } else if (this.selectedModeIndex === 1) {
+            this.quickKnockout = !this.quickKnockout;
             this.audio.playBeep(523, 0.06);
           } else {
             this.selectedModeIndex = (this.selectedModeIndex + 1) % 3;
@@ -2396,6 +2517,13 @@
             }
           }
 
+          // Botão de Faixa Esportiva (topo direito) dentro do card de pintura
+          if (click.x >= bX + bW - 88 && click.x <= bX + bW - 6 && click.y >= bY + 5 && click.y <= bY + 21) {
+            this.stripeStyle = (this.stripeStyle + 1) % STRIPE_STYLES.length;
+            this.audio.playBeep(500, 0.05);
+            clickedSwatch = true;
+          }
+
           // Toque no lado esquerdo ou direito do painel para navegar nas cores
           if (!clickedSwatch) {
             if (click.x < bX + 32 && click.y >= bY && click.y <= bY + bH) {
@@ -2404,6 +2532,11 @@
               this.input.justPressedRight = true;
             }
           }
+        }
+
+        if (this.input.justPressedUp || this.input.justPressedDown) {
+          this.stripeStyle = (this.stripeStyle + 1) % STRIPE_STYLES.length;
+          this.audio.playBeep(500, 0.05);
         }
 
         // Navegação de Cores via Controle (D-pad / Analógico) ou Teclado (Setas / A / D)
@@ -3111,6 +3244,20 @@
         return;
       }
 
+      if (this.state === 'RACE_TIMES') {
+        this.audio.silenceEffects();
+        if (this.input.lastCanvasClick) {
+          this.input.lastCanvasClick = null;
+          this.input.justPressedEnter = true;
+        }
+        if (this.input.justPressedEnter) {
+          this.audio.playBeep(440, 0.1);
+          this.fadeTransition('RACE_RESULT');
+        }
+        this.input.clearPulses();
+        return;
+      }
+
       if (this.state === 'RACE_RESULT') {
         this.audio.silenceEffects();
         if (this.input.lastCanvasClick) {
@@ -3325,6 +3472,83 @@
 
       // --- CORRIDA EM ANDAMENTO ---
       this.updateSkyScroll(dt);
+
+      // Clima dinâmico na volta 2+ e contagem de ultrapassagens
+      if (this.state === 'RACING' && this.player && !this.finishingRace) {
+        if (this.dynamicWeather && !this.dynamicWeatherTriggered && this.player.laps >= 1) {
+          this.dynamicWeatherTriggered = true;
+          if (this.envTarget && this.envTarget.s) {
+            if (this.dynamicWeather === 'RAIN') {
+              this.envTarget.s.rain = 0.75;
+              this.envTarget.s.wet = 0.85;
+              if (this.radio) this.radio.speak('Atenção: chuva chegando na pista!', true);
+            } else if (this.dynamicWeather === 'DUSK') {
+              this.envTarget.s.dusk = 0.85;
+              if (this.radio) this.radio.speak('Entardecer rápido na pista!', false);
+            }
+          }
+        }
+        const rankedNow = this.getRankedCars();
+        const curRank = rankedNow.findIndex(c => c.isPlayer) + 1;
+        if (curRank > 0 && curRank < this.prevPlayerRank) {
+          this.overtakesCount += (this.prevPlayerRank - curRank);
+        }
+        if (curRank > 0) this.prevPlayerRank = curRank;
+
+        // Pit Lane Estratégico (faixa esquerda na reta principal, a partir da volta 2, 1x por volta)
+        const curPitSeg = this.findSegment(this.player.z);
+        if (
+          this.gameMode !== 'TIME_TRIAL' &&
+          !this.isQualifying &&
+          this.player.laps >= 1 &&
+          this.player.pitUsedLap !== this.player.laps &&
+          curPitSeg && curPitSeg.pitWall &&
+          this.player.x <= -0.82 && this.player.x >= -1.32
+        ) {
+          this.player.inPitLane = true;
+          this.player.speed = Math.min(this.player.speed, 135);
+          this.player.pitTimer = (this.player.pitTimer || 0) + dt;
+          this.pitProgress = Math.min(1, this.player.pitTimer / 1.1);
+          if (this.player.pitTimer >= 1.1) {
+            this.player.nitroCharges = 3;
+            this.player.pitUsedLap = this.player.laps;
+            this.player.inPitLane = false;
+            this.player.pitTimer = 0;
+            this.pitProgress = 0;
+            this.player.speed = Math.max(this.player.speed, 195);
+            if (this.audio) this.audio.playBeep(784, 0.2);
+            if (this.radio) this.radio.speak('Box relâmpago concluído! Nitro 100%!', false);
+          }
+        } else {
+          this.player.inPitLane = false;
+          this.player.pitTimer = 0;
+          this.pitProgress = 0;
+        }
+
+        // Modo Eliminação (Knockout): elimina o último ativo a cada volta completada pelo líder
+        if (this.gameMode === 'QUICK_RACE' && this.quickKnockout && !this.isQualifying) {
+          const leadLap = rankedNow[0] ? rankedNow[0].laps : 0;
+          if (leadLap > this.lastEliminatedLap && this.lastEliminatedLap < TOTAL_LAPS - 1) {
+            this.lastEliminatedLap++;
+            let targetElim = null;
+            for (let ri = rankedNow.length - 1; ri >= 0; ri--) {
+              if (!rankedNow[ri].eliminated) {
+                targetElim = rankedNow[ri];
+                break;
+              }
+            }
+            if (targetElim) {
+              targetElim.eliminated = true;
+              if (targetElim.isPlayer) {
+                if (this.radio) this.radio.speak('Você foi eliminado na volta ' + this.lastEliminatedLap + '!', true);
+                this.finishRace();
+              } else if (this.radio) {
+                this.radio.speak('Eliminação na volta ' + this.lastEliminatedLap + '! ' + targetElim.driverCode + ' está fora!', true);
+              }
+            }
+          }
+        }
+      }
       this.updateEnv(dt);
       const targetCamDepth = (this.player && this.player.isNitro && this.state === 'RACING') ? (CAMERA_DEPTH * 0.90) : CAMERA_DEPTH;
       this.currentCameraDepth += (targetCamDepth - (this.currentCameraDepth || CAMERA_DEPTH)) * Math.min(1, dt * 6);
@@ -3751,10 +3975,14 @@
         if (this.bestLapTime === 0 || thisLap < this.bestLapTime) {
           this.bestLapTime = thisLap;
           const curTrack = TRACK_DEFINITIONS[this.trackIndex];
+          let brokeRecord = false;
           if (curTrack && typeof TrackRecords !== 'undefined') {
-            TrackRecords.update(curTrack.id, this.bestLapTime, 0);
+            const recRes = TrackRecords.update(curTrack.id, this.bestLapTime, 0, this.player.driverName, this._getCleanCarName(this.player));
+            brokeRecord = !!(recRes && recRes.brokeLapRecord);
           }
-          if (this.radio) this.radio.speak("Volta mais rápida da corrida!", false);
+          if (this.radio) {
+            this.radio.speak(brokeRecord ? "NOVO RECORDE DA PISTA!" : "Volta mais rápida da corrida!", brokeRecord);
+          }
           if (this.gameMode === 'TIME_TRIAL' && this.currentGhostTrail && this.currentGhostTrail.length > 5) {
             this.bestGhostTrail = [...this.currentGhostTrail];
           }
@@ -3818,6 +4046,14 @@
       for (let i = 0; i < this.cars.length; i++) {
         const bot = this.cars[i];
         if (bot.isPlayer || bot.isRemote || (this.isOnlineRace && this.netplay && this.netplay.role === 'GUEST')) continue;
+
+        if (bot.eliminated) {
+          bot.isNitro = false;
+          bot.isBraking = true;
+          bot.speed = Math.max(0, bot.speed - 95 * dt);
+          bot.x += (1.05 - bot.x) * Math.min(1, 2.2 * dt);
+          continue;
+        }
 
         if (this.raceTimer < bot.launchDelay) {
           bot.speed = 0;
@@ -4098,7 +4334,7 @@
 
       for (let i = 0; i < this.cars.length; i++) {
         const bot = this.cars[i];
-        if (bot.isPlayer) continue;
+        if (bot.isPlayer || bot.eliminated || p.inPitLane) continue;
         if (this.finishingRace) continue; // Após bandeirar, o carro do jogador desacelera em segurança sem colisão
 
         // dz < 0: bot está à frente do jogador | dz > 0: bot está atrás do jogador
@@ -4411,7 +4647,7 @@
     }
 
     finishRace() {
-      this.state = 'RACE_RESULT';
+      this.state = (this.gameMode === 'CHAMPIONSHIP') ? 'RACE_TIMES' : 'RACE_RESULT';
       this.isQualifying = false;
       this.qualifiedGridPos = 0;
       this.qualifiedLapTime = 0;
@@ -4439,7 +4675,7 @@
           playerCarRef = car;
           const curTrack = TRACK_DEFINITIONS[this.trackIndex];
           if (curTrack && typeof TrackRecords !== 'undefined') {
-            TrackRecords.update(curTrack.id, this.bestLapTime, pos + 1);
+            TrackRecords.update(curTrack.id, this.bestLapTime, pos + 1, this.player.driverName, this._getCleanCarName(this.player));
           }
         }
         if (this.gameMode === 'CHAMPIONSHIP') {
@@ -4459,6 +4695,28 @@
           }
         }
       }
+      if (this.gameMode === 'CHAMPIONSHIP' && this.stageObjective && playerFinishPos >= 0) {
+        const pRank = playerFinishPos + 1;
+        let ok = false;
+        if (this.stageObjective.type === 'PODIUM') ok = (pRank <= 3);
+        else if (this.stageObjective.type === 'TOP10') ok = (pRank <= 10);
+        else if (this.stageObjective.type === 'OVERTAKES') ok = (this.overtakesCount >= 8);
+        this.stageObjective.done = ok;
+        if (ok && this.diffMode === 'NORMAL') {
+          this.lastObjectiveBonus = this.stageObjective.reward;
+          this.playerCredits = (this.playerCredits || 0) + this.stageObjective.reward;
+        }
+        if (this.seasonRivalIndex >= 1) {
+          const rivalCar = ranked.find(c => c.id === this.seasonRivalIndex);
+          if (rivalCar && rivalCar.racePos > pRank) {
+            this.rivalBeaten = true;
+            if (this.diffMode === 'NORMAL') {
+              this.lastRivalBonus = 1000;
+              this.playerCredits = (this.playerCredits || 0) + 1000;
+            }
+          }
+        }
+      }
       if (playerCarRef && typeof CareerStats !== 'undefined') {
         const isRain = !!(this.envCur && this.envCur.s && this.envCur.s.rain > 0.25);
         const km = (this.track ? (this.track.totalLength / 1000) * TOTAL_LAPS : 0);
@@ -4469,6 +4727,17 @@
             points: this.championshipPoints[c.id] || 0
           })).sort((a, b) => b.points - a.points);
           isChampWin = !!(overall[0] && overall[0].car && overall[0].car.isPlayer);
+          const pOverallRank = overall.findIndex(o => o.car.isPlayer) + 1;
+          const cupObj = (typeof REGIONAL_CUPS !== 'undefined') ? REGIONAL_CUPS.find(c => c.id === this.champSubMode) : null;
+          const modeLabel = cupObj ? cupObj.name : (this.customChampionship ? 'TORNEIO CUSTOM' : 'CAMPEONATO LH44 BR');
+          this.saveTrophyEntry({
+            date: new Date().toLocaleDateString('pt-BR'),
+            mode: modeLabel,
+            car: playerCarRef.model ? playerCarRef.model.name : 'CARRO',
+            color: playerCarRef.bodyColor || '#FFD700',
+            rank: pOverallRank,
+            points: this.championshipPoints[0] || 0
+          });
         }
         const res = CareerStats.recordRace({
           rank: playerFinishPos + 1,
@@ -4663,7 +4932,8 @@
               isNitro: this.player.isNitro,
               wheelPhase: this.player.z * 0.035,
               isNight: isDark,
-              speed: this.player.speed
+              speed: this.player.speed,
+              stripeStyle: this.stripeStyle || 0
             }
           );
         }
@@ -4744,7 +5014,9 @@
         return;
       }
 
-      if (this.state === 'MENU') {
+      if (this.state === 'TROPHY_ROOM') {
+        this.renderTrophyRoom(ctx);
+      } else if (this.state === 'MENU') {
         this.renderMenu(ctx);
       } else if (this.state === 'ONLINE_LOBBY') {
         this.renderOnlineLobby(ctx);
@@ -4772,6 +5044,8 @@
         this.renderSaveProgress(ctx);
       } else if (this.state === 'DIFFICULTY_SELECT') {
         this.renderDifficultySelect(ctx);
+      } else if (this.state === 'RACE_TIMES') {
+        this.renderRaceTimes(ctx);
       } else if (this.state === 'RACE_RESULT') {
         this.renderRaceResult(ctx);
       } else if (this.state === 'CHAMPIONSHIP_STANDINGS') {

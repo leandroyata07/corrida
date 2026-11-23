@@ -659,6 +659,22 @@
       const drawY = -h * (this.ORIGIN_Y / this.SPRITE_H);
       ctx.drawImage(sprite, drawX, drawY, w, h);
 
+      // Personalização visual: faixas esportivas
+      if (opts.stripeStyle === 1 || opts.stripeStyle === 2) {
+        const sx = w / this.SPRITE_W;
+        const sy = h / this.SPRITE_H;
+        ctx.save();
+        ctx.fillStyle = (body === '#EEF2F6' || body === '#F5C400') ? 'rgba(20, 24, 34, 0.82)' : 'rgba(248, 250, 252, 0.82)';
+        const tx = -turn * 3.5 * sx;
+        if (opts.stripeStyle === 1) {
+          ctx.fillRect(tx - 6.0 * sx, -27 * sy, 3.2 * sx, 26 * sy);
+          ctx.fillRect(tx + 2.8 * sx, -27 * sy, 3.2 * sx, 26 * sy);
+        } else {
+          ctx.fillRect(tx - 4.5 * sx, -27 * sy, 9.0 * sx, 26 * sy);
+        }
+        ctx.restore();
+      }
+
       // Efeito discreto de rodas em movimento proporcional à velocidade (sem alterar dimensões)
       this.drawWheelMotionEffect(ctx, model, w, h, turn, phase, spd);
 
@@ -4546,7 +4562,11 @@
     { id: 'prata',    name: 'PRATA',    hex: '#94A3B8' },
     { id: 'laranja',  name: 'LARANJA',  hex: '#EA580C' },
     { id: 'roxo',     name: 'ROXO',     hex: '#7E22CE' },
-    { id: 'vinho',    name: 'VINHO',    hex: '#881337' }
+    { id: 'vinho',    name: 'VINHO',    hex: '#881337' },
+    { id: 'ciano',    name: 'CIANO',    hex: '#06B6D4' },
+    { id: 'rosa',     name: 'ROSA',     hex: '#EC4899' },
+    { id: 'dourado',  name: 'DOURADO',  hex: '#CA8A04' },
+    { id: 'grafite',  name: 'GRAFITE',  hex: '#475569' }
   ];
   const MODEL_DEFAULT_COLOR = {
     uno: 1, fusca: 3, peugeot: 1, hb20: 0, opala: 2, gol: 0, chevette: 3, brasilia: 2,

@@ -465,6 +465,20 @@
       const creditsY = touchSafe ? 194 : 204;
       const creditsText = 'Desenvolvido por Leandro Yata - 2026 - (75) 99190-2534';
 
+      // Botão discreto da Sala de Troféus no canto superior esquerdo
+      ctx.save();
+      ctx.fillStyle = 'rgba(12, 18, 32, 0.88)';
+      ctx.fillRect(6, 6, 66, 15);
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(6, 6, 66, 15);
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 6.5px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🏆 TROFÉUS', 39, 13.5);
+      ctx.restore();
+
       ctx.font = 'bold 6.2px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -708,14 +722,19 @@
       ctx.font = touchSafe ? 'bold 6.8px monospace' : 'bold 7.8px monospace';
       ctx.fillText('SELECIONE O TIPO DE DISPUTA', INTERNAL_WIDTH / 2, touchSafe ? 29 : 33);
 
+      const cupInfo = (typeof REGIONAL_CUPS !== 'undefined') ? REGIONAL_CUPS.find(c => c.id === this.champSubMode) : null;
       const modes = [
         {
           id: 0,
-          title: 'CAMPEONATO F1',
+          title: cupInfo ? cupInfo.name : 'CAMPEONATO LH44 BR',
           icon: '🏆',
-          badge: this.customChampionship ? 'TORNEIO CUSTOM' : 'TEMPORADA COMPLETA',
-          color: this.customChampionship ? '#38BDF8' : '#FFD700',
-          lines: this.customChampionship ? [
+          badge: cupInfo ? 'COPA REGIONAL' : (this.customChampionship ? 'TORNEIO CUSTOM' : 'TEMPORADA COMPLETA'),
+          color: cupInfo ? '#F472B6' : (this.customChampionship ? '#38BDF8' : '#FFD700'),
+          lines: cupInfo ? [
+            `• ${cupInfo.codes.length} ETAPAS REGIONAIS`,
+            '• PONTUAÇÃO F1 TOP 15',
+            '• TÍTULO & TROFÉU REGIONAL'
+          ] : (this.customChampionship ? [
             '• 5 A 31 PISTAS À ESCOLHA',
             '• NA ORDEM QUE VOCÊ DEFINIR',
             '• PRÊMIOS ESCALONADOS'
@@ -723,19 +742,23 @@
             `• ${TRACK_DEFINITIONS.length} ETAPAS (FINAL EM SP)`,
             '• PONTUAÇÃO TOP 15 (1º AO 15º)',
             '• DISPUTA DO TÍTULO & PÓDIO'
-          ],
+          ]),
           box: L.card0
         },
         {
           id: 1,
-          title: 'CORRIDA RÁPIDA',
-          icon: '⚡',
-          badge: 'AÇÃO IMEDIATA',
-          color: '#00E5FF',
-          lines: [
+          title: this.quickKnockout ? 'ELIMINAÇÃO (KNOCKOUT)' : 'CORRIDA RÁPIDA',
+          icon: this.quickKnockout ? '💀' : '⚡',
+          badge: this.quickKnockout ? 'ÚLTIMO CAI POR VOLTA' : 'AÇÃO IMEDIATA',
+          color: this.quickKnockout ? '#FB7185' : '#00E5FF',
+          lines: this.quickKnockout ? [
+            '• ÚLTIMO É ELIMINADO/VOLTA',
+            '• PRESSÃO DO INÍCIO AO FIM',
+            '• [↑/↓] ALTERNA PADRÃO'
+          ] : [
             '• ESCOLHA 1 CIRCUITO',
             '• DUELO C/ 19 BOTS',
-            '• RESULTADO DIRETO'
+            '• [↑/↓] MODO ELIMINAÇÃO'
           ],
           box: L.card1
         },
@@ -1176,10 +1199,11 @@
       ctx.fillStyle = '#E2E8F0';
       ctx.fillText(`• PROVA: ${TOTAL_LAPS} VOLTAS  ${medalIcon}`, infoX, bY + 62);
 
-      // Linha 4: Recorde de Melhor Volta
+      // Linha 4: Recorde de Melhor Volta (Hall da Fama)
       ctx.fillStyle = '#00E676';
-      ctx.font = 'bold 6px monospace';
-      ctx.fillText(`• RECORDE: ${recLapStr}`, infoX, bY + 74);
+      ctx.font = 'bold 5.8px monospace';
+      const holder = (trackRec && trackRec.bestDriver) ? ` (${trackRec.bestDriver}${trackRec.bestCar ? '·' + trackRec.bestCar : ''})` : '';
+      ctx.fillText(`• RECORDE: ${recLapStr}${holder}`.slice(0, 34), infoX, bY + 74);
       ctx.fillStyle = '#FFD700';
       ctx.font = '5.6px monospace';
       ctx.fillText(`★ ${track.monument}`, infoX, bY + 84);
@@ -1603,6 +1627,18 @@
       // Carro em exibição na cor selecionada com movimento suave de um lado para o outro
       const showcaseSteerColor = Math.sin(now * 0.0020) * 0.76;
       const showcaseBrakeColor = (Math.floor(now / 1800) % 4 === 0);
+      const sObj = (typeof STRIPE_STYLES !== 'undefined' && STRIPE_STYLES[this.stripeStyle || 0]) ? STRIPE_STYLES[this.stripeStyle || 0] : { name: 'SEM FAIXA' };
+
+      // Botão de personalização de Faixa Esportiva no topo direito do card
+      ctx.fillStyle = 'rgba(15, 25, 42, 0.92)';
+      ctx.fillRect(bX + bW - 88, bY + 5, 82, 15);
+      ctx.strokeStyle = '#FFD700';
+      ctx.lineWidth = 0.9;
+      ctx.strokeRect(bX + bW - 88, bY + 5, 82, 15);
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 5.8px monospace';
+      ctx.fillText(`${sObj.name}`, bX + bW - 47, bY + 12.5);
+
       car.render(
         ctx,
         platX,
@@ -1616,14 +1652,16 @@
           isNitro: false,
           wheelPhase: now * 0.008,
           isNight: true,
-          speed: 0
+          speed: 0,
+          stripeStyle: this.stripeStyle || 0
         }
       );
 
-      // Badge com o nome do carro e cor selecionada (posicionado com segurança abaixo da plataforma)
+      // Badge com o nome do carro e cor selecionada (posicionado com folga acima da paleta)
       const colIdxNum = (this.colorIndex + 1).toString().padStart(2, '0');
-      const badgeY = bY + (touchSafe ? 69 : 79);
-      const badgeW = Math.min(bW - 24, 215);
+      const totalCols = CAR_COLORS.length.toString().padStart(2, '0');
+      const badgeY = bY + (touchSafe ? 65 : 74);
+      const badgeW = Math.min(bW - 24, 225);
       const badgeH = touchSafe ? 12 : 13.5;
       ctx.fillStyle = 'rgba(6, 12, 22, 0.88)';
       ctx.fillRect(INTERNAL_WIDTH / 2 - badgeW / 2, badgeY, badgeW, badgeH);
@@ -1632,7 +1670,7 @@
       ctx.strokeRect(INTERNAL_WIDTH / 2 - badgeW / 2, badgeY, badgeW, badgeH);
       ctx.fillStyle = '#FFD700';
       ctx.font = `bold ${touchSafe ? 6.4 : 7.4}px monospace`;
-      ctx.fillText(`[ ETAPA 2/2 ]  ${car.name} · COR ${colIdxNum}/10 (${color.name.toUpperCase()})`, INTERNAL_WIDTH / 2, badgeY + (touchSafe ? 8.6 : 9.8));
+      ctx.fillText(`[ ETAPA 2/2 ]  ${car.name} · COR ${colIdxNum}/${totalCols} (${color.name.toUpperCase()})`, INTERNAL_WIDTH / 2, badgeY + (touchSafe ? 8.6 : 9.8));
 
       // 10 Amostras circulares de cores com destaque pulsante
       if (sw) {
@@ -1666,10 +1704,10 @@
             ctx.fill();
           }
 
-          // Número do atalho (1 a 10) abaixo de cada amostra
+          // Número da cor (1 a 14) abaixo de cada amostra
           ctx.fillStyle = selected ? '#FFD700' : '#64748B';
           ctx.font = `bold ${touchSafe ? 5.2 : 6.0}px monospace`;
-          ctx.fillText(`${(s.i + 1) % 10}`, s.x, s.y + s.r + (touchSafe ? 8 : 9));
+          ctx.fillText(`${s.i + 1}`, s.x, s.y + s.r + (touchSafe ? 8 : 9));
         }
       }
 
@@ -2192,6 +2230,7 @@
         const badgeW = 44;
         ctx.fillStyle = isSel ? '#FFD700' : (data ? '#0284C7' : '#334155');
         ctx.fillRect(cardX + 2, cY + 2, badgeW, cardH - 4);
+        ctx.textAlign = 'center';
         ctx.fillStyle = isSel ? '#100500' : '#FFFFFF';
         ctx.font = 'bold 8.5px monospace';
         ctx.fillText(`SLOT ${slotNum}`, cardX + 2 + badgeW / 2, cY + cardH / 2);
@@ -2426,9 +2465,268 @@
 
       ctx.textAlign = 'center';
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 8px monospace';
-      ctx.fillText('▶ TOQUE AQUI OU PRESSIONE [ENTER] / [A] PARA CONTINUAR', cx, btnY + btnH / 2);
+      ctx.font = 'bold 6.6px monospace';
+      ctx.fillText('▶ TOQUE AQUI OU PRESSIONE [ENTER] / [A] PARA CONTINUAR', cx, btnY + btnH / 2, btnW - 10);
 
+      ctx.restore();
+    }
+
+    renderTrophyRoom(ctx) {
+      const touchSafe = this.input.touchControlsVisible;
+      ctx.fillStyle = 'rgba(5, 8, 16, 0.95)';
+      ctx.fillRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT);
+
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFD700';
+      ctx.font = touchSafe ? 'bold 10.5px monospace' : 'bold 12px monospace';
+      ctx.fillText('🏆 SALA DE TROFÉUS — GALERIA DE CAMPEÕES 🏆', INTERNAL_WIDTH / 2, 16);
+
+      ctx.fillStyle = '#00E5FF';
+      ctx.font = 'bold 6.8px monospace';
+      ctx.fillText('HISTÓRICO DE CAMPEONATOS E COPAS CONCLUÍDAS', INTERNAL_WIDTH / 2, 26);
+
+      const list = (typeof this.getTrophies === 'function') ? this.getTrophies() : [];
+      const boxW = INTERNAL_WIDTH - 24;
+      const boxX = 12;
+      const boxY = 34;
+      const boxH = 148;
+      ctx.fillStyle = 'rgba(12, 18, 30, 0.94)';
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.45)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+      if (!list || list.length === 0) {
+        ctx.fillStyle = '#94A3B8';
+        ctx.font = 'bold 8px monospace';
+        ctx.fillText('NENHUM TROFÉU REGISTRADO AINDA', INTERNAL_WIDTH / 2, boxY + 62);
+        ctx.font = '6.8px monospace';
+        ctx.fillText('Complete um Campeonato ou Copa Regional para gravar seu título aqui!', INTERNAL_WIDTH / 2, boxY + 78);
+      } else {
+        const showMax = Math.min(10, list.length);
+        for (let i = 0; i < showMax; i++) {
+          const t = list[i];
+          const y = boxY + 8 + i * 13.5;
+          ctx.fillStyle = (i % 2 === 0) ? 'rgba(255,255,255,0.03)' : 'transparent';
+          ctx.fillRect(boxX + 2, y - 2, boxW - 4, 12);
+
+          ctx.textAlign = 'left';
+          ctx.font = 'bold 6.6px monospace';
+          ctx.fillStyle = t.rank === 1 ? '#FFD700' : (t.rank <= 3 ? '#69F0AE' : '#94A3B8');
+          const medal = t.rank === 1 ? '🥇 1º' : (t.rank === 2 ? '🥈 2º' : (t.rank === 3 ? '🥉 3º' : `🏁 ${t.rank}º`));
+          ctx.fillText(medal, boxX + 8, y + 6);
+
+          ctx.fillStyle = '#ECEFF1';
+          ctx.fillText(String(t.mode || 'CAMPEONATO').slice(0, 20), boxX + 42, y + 6);
+
+          ctx.fillStyle = '#80CBC4';
+          ctx.fillText(String(t.car || '').slice(0, 14), boxX + 165, y + 6);
+
+          ctx.textAlign = 'right';
+          ctx.fillStyle = '#00E5FF';
+          ctx.fillText(`${t.points || 0} PTS`, boxX + boxW - 56, y + 6);
+          ctx.fillStyle = '#64748B';
+          ctx.fillText(String(t.date || ''), boxX + boxW - 8, y + 6);
+        }
+      }
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFD700';
+      ctx.font = 'bold 8px monospace';
+      ctx.fillText('TOQUE OU PRESSIONE [ENTER] / [ESC] PARA VOLTAR', INTERNAL_WIDTH / 2, 196);
+      ctx.restore();
+    }
+
+    _getCleanCarName(car) {
+      const id = (car && car.model && car.model.id) ? String(car.model.id).toLowerCase() : '';
+      const map = {
+        uno: 'UNO',
+        fusca: 'FUSCA',
+        peugeot: '206',
+        hb20: 'HB20',
+        opala: 'OPALA',
+        gol: 'GOL',
+        chevette: 'CHEVETTE',
+        brasilia: 'BRASÍLIA',
+        corsa: 'CORSA',
+        celta: 'CELTA',
+        onix: 'ONIX',
+        ka: 'KA',
+        palio: 'PALIO',
+        kwid: 'KWID',
+        focus: 'FOCUS',
+        sandero: 'SANDERO',
+        mobi: 'MOBI',
+        santana: 'SANTANA',
+        rural: 'RURAL',
+        kombi: 'KOMBI'
+      };
+      if (map[id]) return map[id];
+      const raw = (car && car.model && car.model.name) ? String(car.model.name).toUpperCase() : '';
+      return raw.replace(/^(FIAT|FORD|VW|RENAULT|PEUGEOT)\s+/, '').split(' ')[0] || 'CARRO';
+    }
+
+    renderRaceTimes(ctx) {
+      const touchSafe = this.input.touchControlsVisible;
+      ctx.fillStyle = 'rgba(5, 8, 16, 0.94)';
+      ctx.fillRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT);
+
+      const def = TRACK_DEFINITIONS[this.trackIndex];
+
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#FFD700';
+      ctx.font = touchSafe ? 'bold 10.5px monospace' : 'bold 12px monospace';
+      const totalStages = (this.seasonSchedule && this.seasonSchedule.length) ? this.seasonSchedule.length : TRACK_DEFINITIONS.length;
+      const currentStageNum = (this.seasonStage !== undefined ? this.seasonStage : 0) + 1;
+      ctx.fillText(`⏱️ ETAPA ${currentStageNum}/${totalStages} — ${def.name}`, INTERNAL_WIDTH / 2, 16);
+
+      ctx.fillStyle = '#00E5FF';
+      ctx.font = 'bold 7.2px monospace';
+      ctx.fillText('TEMPOS OFICIAIS DA CORRIDA FINALIZADA (1º AO 20º)', INTERNAL_WIDTH / 2, 26);
+
+      const ranked = this.lastRacePositions || this.cars;
+      const leader = ranked[0];
+      const leaderTime = (leader && leader.finishTime > 0) ? leader.finishTime : this.raceTimer;
+      const leaderDist = leader ? leader.totalDistance : 0;
+      const leaderAvgSpeed = Math.max(800, leaderDist / Math.max(1.0, leaderTime));
+      const trackLen = this.track ? this.track.totalLength : 10000;
+
+      // Pré-calcula tempos oficiais estritamente crescentes (reais para quem cruzou, média real da corrida para quem ainda estava na pista)
+      const computedTimes = new Array(ranked.length);
+      let lastTime = 0;
+      for (let idx = 0; idx < ranked.length; idx++) {
+        const c = ranked[idx];
+        if (!c) continue;
+        if (c.finishTime > 0) {
+          computedTimes[idx] = Math.max(lastTime + (idx > 0 ? 0.01 : 0), c.finishTime);
+          lastTime = computedTimes[idx];
+        } else {
+          const distGap = Math.max(0, leaderDist - c.totalDistance);
+          const est = Math.max(lastTime + 0.01, leaderTime + distGap / leaderAvgSpeed);
+          computedTimes[idx] = est;
+          lastTime = est;
+        }
+      }
+
+      const colW = Math.min(186, Math.floor((INTERNAL_WIDTH - 12) / 2));
+      const leftX = Math.floor((INTERNAL_WIDTH / 2) - colW - 2);
+      const rightX = Math.floor((INTERNAL_WIDTH / 2) + 2);
+      const tableY = 32;
+      const rowH = 12.2;
+      const headH = 12;
+
+      const drawColumn = (colX, startRank, endRank, highlightCol) => {
+        const colH = headH + (endRank - startRank + 1) * rowH + 2;
+        ctx.fillStyle = 'rgba(12, 18, 30, 0.94)';
+        ctx.fillRect(colX, tableY, colW, colH);
+        ctx.strokeStyle = highlightCol ? 'rgba(0, 229, 255, 0.5)' : 'rgba(100, 120, 145, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(colX, tableY, colW, colH);
+
+        ctx.fillStyle = highlightCol ? 'rgba(0, 229, 255, 0.15)' : 'rgba(100, 120, 145, 0.12)';
+        ctx.fillRect(colX, tableY, colW, headH);
+
+        ctx.font = 'bold 6.2px monospace';
+        ctx.fillStyle = highlightCol ? '#00E5FF' : '#90A4AE';
+        ctx.textAlign = 'left';
+        ctx.fillText('POS', colX + 3, tableY + 8.5);
+        ctx.fillText('PILOTO', colX + 19, tableY + 8.5);
+        ctx.fillText('CARRO', colX + 86, tableY + 8.5);
+        ctx.textAlign = 'right';
+        ctx.fillText('TEMPO', colX + colW - 3, tableY + 8.5);
+
+        for (let r = startRank; r <= endRank; r++) {
+          const car = ranked[r - 1];
+          if (!car) continue;
+          const y = tableY + headH + (r - startRank) * rowH;
+          const isPlayer = car.isPlayer;
+
+          if (isPlayer) {
+            ctx.fillStyle = 'rgba(255, 215, 0, 0.24)';
+            ctx.fillRect(colX + 1, y, colW - 2, rowH - 0.5);
+          } else if (r % 2 === 0) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
+            ctx.fillRect(colX + 1, y, colW - 2, rowH - 0.5);
+          }
+
+          let posColor = '#90A4AE';
+          let nameColor = '#ECEFF1';
+          if (isPlayer) {
+            posColor = '#FFD700';
+            nameColor = '#FFD700';
+          } else if (r === 1) {
+            posColor = '#FFD700';
+            nameColor = '#FFE082';
+          } else if (r === 2) {
+            posColor = '#ECEFF1';
+            nameColor = '#E0F7FA';
+          } else if (r === 3) {
+            posColor = '#CD7F32';
+            nameColor = '#FFE0B2';
+          } else if (r > 10) {
+            nameColor = '#78909C';
+          }
+
+          ctx.font = isPlayer ? 'bold 6.2px monospace' : '6.2px monospace';
+          ctx.textAlign = 'left';
+          ctx.fillStyle = posColor;
+          ctx.fillText(`${String(r).padStart(2, ' ')}º`, colX + 3, y + 8.5);
+
+          ctx.fillStyle = nameColor;
+          const code = car.driverCode || 'LH44';
+          const displayName = isPlayer ? `[${code}] VOCÊ` : `[${code}] ${car.driverName}`;
+          ctx.fillText(displayName, colX + 19, y + 8.5);
+
+          ctx.fillStyle = isPlayer ? '#FFD700' : '#80CBC4';
+          ctx.fillText(this._getCleanCarName(car), colX + 86, y + 8.5);
+
+          let timeStr;
+          const distGap = Math.max(0, leaderDist - car.totalDistance);
+          if (car.finishTime <= 0 && distGap >= trackLen) {
+            const lapsBehind = Math.floor(distGap / trackLen);
+            timeStr = `+${lapsBehind}V`;
+          } else {
+            timeStr = this.formatTime(computedTimes[r - 1] || leaderTime);
+          }
+          ctx.textAlign = 'right';
+          ctx.fillStyle = isPlayer ? '#FFD700' : (car.finishTime > 0 ? '#69F0AE' : '#90A4AE');
+          ctx.fillText(timeStr, colX + colW - 3, y + 8.5);
+        }
+      };
+
+      drawColumn(leftX, 1, 10, true);
+      drawColumn(rightX, 11, 20, false);
+
+      const pRank = ranked.findIndex(c => c.isPlayer) + 1;
+      const pCar = ranked[pRank - 1];
+      const pTime = (pCar && pCar.finishTime > 0) ? pCar.finishTime : this.raceTimer;
+      const bestStr = this.bestLapTime > 0 ? this.formatTime(this.bestLapTime) : '--:--.--';
+
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 7.4px monospace';
+      ctx.fillStyle = pRank <= 3 ? '#69F0AE' : '#FFD700';
+      ctx.fillText(`SEU TEMPO: ${this.formatTime(pTime)}  |  MELHOR VOLTA: ${bestStr}  |  ${pRank}º LUGAR`, INTERNAL_WIDTH / 2, 177);
+
+      if (ranked[0] && ranked[1] && ranked[0].finishTime > 0 && ranked[1].finishTime > 0) {
+        const gap12 = ranked[1].finishTime - ranked[0].finishTime;
+        if (gap12 > 0 && gap12 < 0.30) {
+          ctx.fillStyle = '#00E5FF';
+          ctx.font = 'bold 6.8px monospace';
+          ctx.fillText(`⚡ PHOTO FINISH! DIFERENÇA NA CHEGADA: +${gap12.toFixed(2)}s`, INTERNAL_WIDTH / 2, 186);
+        }
+      }
+
+      const blink = Math.floor(performance.now() / 400) % 2 === 0;
+      if (blink) {
+        ctx.fillStyle = '#FFD700';
+        ctx.font = touchSafe ? 'bold 8px monospace' : 'bold 9.5px monospace';
+        const nextPrompt = touchSafe
+          ? 'TOQUE / [3] — VER RESULTADO DA PROVA'
+          : 'PRESSIONE [ENTER] PARA VER O RESULTADO';
+        ctx.fillText(nextPrompt, INTERNAL_WIDTH / 2, 196);
+      }
       ctx.restore();
     }
 
@@ -2458,9 +2756,9 @@
       ctx.fillText(resultSubtitle, INTERNAL_WIDTH / 2, 26);
 
       const ranked = this.lastRacePositions || this.cars;
-      const colW = Math.min(182, Math.floor((INTERNAL_WIDTH - 20) / 2));
-      const leftX = Math.floor((INTERNAL_WIDTH / 2) - colW - 3);
-      const rightX = Math.floor((INTERNAL_WIDTH / 2) + 3);
+      const colW = Math.min(186, Math.floor((INTERNAL_WIDTH - 12) / 2));
+      const leftX = Math.floor((INTERNAL_WIDTH / 2) - colW - 2);
+      const rightX = Math.floor((INTERNAL_WIDTH / 2) + 2);
       const tableY = 32;
       const rowH = 12.2;
       const headH = 12;
@@ -2477,14 +2775,14 @@
         ctx.fillStyle = isPointsCol ? 'rgba(0, 229, 255, 0.15)' : 'rgba(100, 120, 145, 0.12)';
         ctx.fillRect(colX, tableY, colW, headH);
 
-        ctx.font = 'bold 6.8px monospace';
+        ctx.font = 'bold 6.2px monospace';
         ctx.fillStyle = isPointsCol ? '#00E5FF' : '#90A4AE';
         ctx.textAlign = 'left';
-        ctx.fillText('POS', colX + 4, tableY + 8.5);
-        ctx.fillText('PILOTO', colX + 25, tableY + 8.5);
-        ctx.fillText('CARRO', colX + 112, tableY + 8.5);
+        ctx.fillText('POS', colX + 3, tableY + 8.5);
+        ctx.fillText('PILOTO', colX + 19, tableY + 8.5);
+        ctx.fillText('CARRO', colX + 86, tableY + 8.5);
         ctx.textAlign = 'right';
-        ctx.fillText('PTS', colX + colW - 4, tableY + 8.5);
+        ctx.fillText('PTS', colX + colW - 3, tableY + 8.5);
 
         for (let r = startRank; r <= endRank; r++) {
           const car = ranked[r - 1];
@@ -2519,23 +2817,22 @@
             nameColor = '#78909C';
           }
 
-          ctx.font = isPlayer ? 'bold 7.2px monospace' : '7px monospace';
+          ctx.font = isPlayer ? 'bold 6.2px monospace' : '6.2px monospace';
           ctx.textAlign = 'left';
           ctx.fillStyle = posColor;
-          ctx.fillText(`${String(r).padStart(2, ' ')}º`, colX + 4, y + 8.5);
+          ctx.fillText(`${String(r).padStart(2, ' ')}º`, colX + 3, y + 8.5);
 
           ctx.fillStyle = nameColor;
-          const displayName = isPlayer ? `VOCÊ [${car.driverCode}]` : `${car.driverName} [${car.driverCode}]`;
-          ctx.fillText(displayName.slice(0, 16), colX + 25, y + 8.5);
+          const code = car.driverCode || 'LH44';
+          const displayName = isPlayer ? `[${code}] VOCÊ` : `[${code}] ${car.driverName}`;
+          ctx.fillText(displayName, colX + 19, y + 8.5);
 
-          const mName = car.model?.name || '';
-          const modelShort = mName.includes('UNO') ? 'UNO' : (mName.includes('FUSCA') ? 'FUSCA' : (mName.includes('206') ? '206' : (mName.includes('HB20') ? 'HB20' : mName.slice(0, 5))));
           ctx.fillStyle = isPlayer ? '#FFD700' : '#80CBC4';
-          ctx.fillText(modelShort, colX + 112, y + 8.5);
+          ctx.fillText(this._getCleanCarName(car), colX + 86, y + 8.5);
 
           ctx.textAlign = 'right';
           ctx.fillStyle = pts > 0 ? (isPlayer ? '#FFD700' : '#69F0AE') : '#546E7A';
-          ctx.fillText(pts > 0 ? `+${pts}` : '0', colX + colW - 4, y + 8.5);
+          ctx.fillText(pts > 0 ? `+${pts}` : '0', colX + colW - 3, y + 8.5);
         }
       };
 
@@ -2552,10 +2849,22 @@
       ctx.font = 'bold 7.8px monospace';
       if (this.gameMode === 'QUICK_RACE') {
         ctx.fillStyle = pRank <= 3 ? '#69F0AE' : '#FFD700';
-        ctx.fillText(`SEU RESULTADO: ${pRank}º LUGAR  |  CORRIDA RÁPIDA FINALIZADA!`, INTERNAL_WIDTH / 2, 178);
+        ctx.fillText(`SEU RESULTADO: ${pRank}º LUGAR  |  CORRIDA RÁPIDA FINALIZADA!`, INTERNAL_WIDTH / 2, 177);
       } else {
         ctx.fillStyle = pPts > 0 ? '#69F0AE' : '#FFB74D';
-        ctx.fillText(`SEU RESULTADO: ${pRank}º LUGAR (+${pPts} PTS)  |  TOTAL NO CAMPEONATO: ${pTotal} PTS`, INTERNAL_WIDTH / 2, 178);
+        ctx.fillText(`SEU RESULTADO: ${pRank}º LUGAR (+${pPts} PTS)  |  TOTAL NO CAMPEONATO: ${pTotal} PTS`, INTERNAL_WIDTH / 2, 177);
+        const bonusParts = [];
+        if (this.stageObjective) {
+          bonusParts.push(`OBJETIVO (${this.stageObjective.label}): ${this.stageObjective.done ? '✓' : '✗'}`);
+        }
+        if (this.seasonRivalIndex >= 1) {
+          bonusParts.push(`RIVAL: ${this.rivalBeaten ? '✓ VENCIDO' : '✗ ATRÁS'}`);
+        }
+        if (bonusParts.length > 0) {
+          ctx.fillStyle = '#00E5FF';
+          ctx.font = 'bold 6.2px monospace';
+          ctx.fillText(bonusParts.join('  •  '), INTERNAL_WIDTH / 2, 186);
+        }
       }
 
       if (this.newlyUnlockedAchievements && this.newlyUnlockedAchievements.length > 0) {
@@ -2926,9 +3235,9 @@
         stagePoints: c.racePoints || 0
       })).sort((a, b) => b.points - a.points);
 
-      const colW = Math.min(182, Math.floor((INTERNAL_WIDTH - 20) / 2));
-      const leftX = Math.floor((INTERNAL_WIDTH / 2) - colW - 3);
-      const rightX = Math.floor((INTERNAL_WIDTH / 2) + 3);
+      const colW = Math.min(186, Math.floor((INTERNAL_WIDTH - 12) / 2));
+      const leftX = Math.floor((INTERNAL_WIDTH / 2) - colW - 2);
+      const rightX = Math.floor((INTERNAL_WIDTH / 2) + 2);
       const tableY = 32;
       const rowH = 12.2;
       const headH = 12;
@@ -2944,15 +3253,15 @@
         ctx.fillStyle = 'rgba(0, 229, 255, 0.15)';
         ctx.fillRect(colX, tableY, colW, headH);
 
-        ctx.font = 'bold 6.8px monospace';
+        ctx.font = 'bold 6.2px monospace';
         ctx.fillStyle = '#00E5FF';
         ctx.textAlign = 'left';
-        ctx.fillText('POS', colX + 4, tableY + 8.5);
-        ctx.fillText('PILOTO', colX + 25, tableY + 8.5);
-        ctx.fillText('CARRO', colX + 104, tableY + 8.5);
+        ctx.fillText('POS', colX + 3, tableY + 8.5);
+        ctx.fillText('PILOTO', colX + 19, tableY + 8.5);
+        ctx.fillText('CARRO', colX + 86, tableY + 8.5);
         ctx.textAlign = 'right';
-        ctx.fillText('ETAPA', colX + colW - 32, tableY + 8.5);
-        ctx.fillText('TOTAL', colX + colW - 4, tableY + 8.5);
+        ctx.fillText('ETAPA', colX + colW - 26, tableY + 8.5);
+        ctx.fillText('TOTAL', colX + colW - 3, tableY + 8.5);
 
         for (let r = startRank; r <= endRank; r++) {
           const item = rankedOverall[r - 1];
@@ -2985,27 +3294,26 @@
             nameColor = '#FFE0B2';
           }
 
-          ctx.font = isPlayer ? 'bold 7.2px monospace' : '7px monospace';
+          ctx.font = isPlayer ? 'bold 6.2px monospace' : '6.2px monospace';
           ctx.textAlign = 'left';
           ctx.fillStyle = posColor;
-          ctx.fillText(`${String(r).padStart(2, ' ')}º`, colX + 4, y + 8.5);
+          ctx.fillText(`${String(r).padStart(2, ' ')}º`, colX + 3, y + 8.5);
 
           ctx.fillStyle = nameColor;
-          const displayName = isPlayer ? `VOCÊ [${car.driverCode}]` : `${car.driverName} [${car.driverCode}]`;
-          ctx.fillText(displayName.slice(0, 15), colX + 25, y + 8.5);
+          const code = car.driverCode || 'LH44';
+          const displayName = isPlayer ? `[${code}] VOCÊ` : `[${code}] ${car.driverName}`;
+          ctx.fillText(displayName, colX + 19, y + 8.5);
 
-          const mName = car.model?.name || '';
-          const modelShort = mName.includes('UNO') ? 'UNO' : (mName.includes('FUSCA') ? 'FUSCA' : (mName.includes('206') ? '206' : (mName.includes('HB20') ? 'HB20' : mName.slice(0, 5))));
           ctx.fillStyle = isPlayer ? '#FFD700' : '#80CBC4';
-          ctx.fillText(modelShort, colX + 104, y + 8.5);
+          ctx.fillText(this._getCleanCarName(car), colX + 86, y + 8.5);
 
           ctx.textAlign = 'right';
           ctx.fillStyle = item.stagePoints > 0 ? '#69F0AE' : '#546E7A';
-          ctx.fillText(item.stagePoints > 0 ? `+${item.stagePoints}` : '-', colX + colW - 32, y + 8.5);
+          ctx.fillText(item.stagePoints > 0 ? `+${item.stagePoints}` : '-', colX + colW - 26, y + 8.5);
 
           ctx.fillStyle = isPlayer ? '#FFD700' : '#00E5FF';
-          ctx.font = 'bold 7px monospace';
-          ctx.fillText(`${item.points}`, colX + colW - 4, y + 8.5);
+          ctx.font = 'bold 6.2px monospace';
+          ctx.fillText(`${item.points}`, colX + colW - 3, y + 8.5);
         }
       };
 
