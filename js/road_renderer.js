@@ -197,8 +197,8 @@
       const archH = p1.w * 0.52;
       const postW = Math.max(2, p1.w * 0.07);
       const bannerH = Math.max(4, p1.w * 0.14);
-      const leftX = p1.x - p1.w * 1.06;
-      const rightX = p1.x + p1.w * 1.06;
+      const leftX = p1.x - p1.w * (segment.pitWall && segment.pitSide === -1 ? 2.28 : 1.06);
+      const rightX = p1.x + p1.w * (segment.pitWall && segment.pitSide !== -1 ? 2.28 : 1.06);
       const topY = p1.y - archH;
 
       ctx.save();

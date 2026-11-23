@@ -3503,13 +3503,17 @@
         const pitOpenForPlayer = (
           this.gameMode !== 'TIME_TRIAL' &&
           !this.isQualifying &&
-          this.raceTimer > 6.5 &&
-          this.player.totalDistance > (START_LINE_Z + 1800)
+          this.player.laps >= 1
         );
 
-        // Na largada / volta 1 (ou modos sem pit), não permite entrar na faixa do Pit Lane
-        if (curPitSeg && curPitSeg.pitWall && !pitOpenForPlayer && pxSide > 0.96) {
-          this.player.x = ps * 0.96;
+        // Entrada exclusiva pós-1ª volta e somente pela margem verde indicada no chão (pitEntry)
+        if (
+          !this.player.pitEntered &&
+          curPitSeg && curPitSeg.pitWall &&
+          (!pitOpenForPlayer || !curPitSeg.pitEntry || this.player.pitUsedLap === this.player.laps) &&
+          pxSide > 0.96
+        ) {
+          this.player.x = ps * 0.95;
         }
 
         // Uma vez dentro do Pit Lane, não pode sair para a pista antes da saída normal (pitExit)
