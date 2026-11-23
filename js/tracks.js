@@ -155,6 +155,9 @@ const BOT_BODY_COLORS = [
 class TrackBuilder {
   static build(trackDef, mirrored = false) {
     const segments = [];
+    const pitSide = (typeof trackDef.pitSide === 'number')
+      ? (trackDef.pitSide < 0 ? -1 : 1)
+      : ((trackDef.sections[1] && trackDef.sections[1].curve > 0) ? -1 : 1);
     const sections = trackDef.sections;
     const hasCustomMap = !!(trackDef.mapPoints && trackDef.mapPoints.length > 16);
     const lengthScale = 1.5;
@@ -220,10 +223,7 @@ class TrackBuilder {
 
         // 1. Elementos da Reta de Largada / Boxes (Seção 0)
         if (sec.timingTower && (i === 24 || i === 64)) {
-          sceneries.push({ type: 'timing_tower', offset: -1.35 });
-        }
-        if (sec.pitWall && i >= 10 && i < segCount - 12 && (i % 6 === 0)) {
-          sceneries.push({ type: 'pit_wall', offset: 1.15 });
+          sceneries.push({ type: 'timing_tower', offset: -1.35 * pitSide });
         }
 
         // 2. Monumentos Principais e Secundários da Seção
@@ -291,8 +291,25 @@ class TrackBuilder {
           }
         }
 
-        const sceneryObj = (sceneries.length === 1) ? sceneries[0] : (sceneries.length > 1 ? sceneries : null);
         const hasPitWall = !!(sec.pitWall && i >= 10 && i < segCount - 12);
+        const pitEntry = !!(hasPitWall && i >= START_LINE_SEG && i < START_LINE_SEG + 28);
+        const pitExitStart = segCount - 34;
+        const pitExit = !!(hasPitWall && i >= pitExitStart);
+        const pitExitLen = Math.max(1, (segCount - 12) - pitExitStart);
+        const pitExitT1 = pitExit ? Math.max(0, Math.min(1, (i - pitExitStart) / pitExitLen)) : 0;
+        const pitExitT2 = pitExit ? Math.max(0, Math.min(1, (i + 1 - pitExitStart) / pitExitLen)) : 0;
+        const pitBarrier = !!(hasPitWall && !pitEntry && !pitExit);
+
+        // No trecho do Pit Lane, todo item de paisagem do lado dos boxes fica na grama externa
+        if (sec.pitWall && sceneries.length > 0) {
+          for (let si = 0; si < sceneries.length; si++) {
+            if (sceneries[si].offset * pitSide > 0) {
+              sceneries[si].offset = pitSide * Math.max(2.55, Math.abs(sceneries[si].offset) + 0.85);
+            }
+          }
+        }
+
+        const sceneryObj = (sceneries.length === 1) ? sceneries[0] : (sceneries.length > 1 ? sceneries : null);
 
         segments.push({
           index: idx,
@@ -304,6 +321,12 @@ class TrackBuilder {
           guardrailLeft: guardLeft,
           guardrailRight: guardRight,
           pitWall: hasPitWall,
+          pitSide: pitSide,
+          pitEntry: pitEntry,
+          pitExit: pitExit,
+          pitExitT1: pitExitT1,
+          pitExitT2: pitExitT2,
+          pitBarrier: pitBarrier,
           tunnel: sec.tunnel || null,
           tunnelPortal: tunnelPortal,
           bridge: isBridge,

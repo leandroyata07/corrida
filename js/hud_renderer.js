@@ -856,11 +856,24 @@
 
         // Indicador / Barra de Progresso do Pit Lane Estratégico na Reta Principal
         const curSeg = segs[curSegIdx];
+        let pitHintSeg = (curSeg && curSeg.pitWall) ? curSeg : null;
+        if (!pitHintSeg) {
+          for (let la = 1; la <= 28; la++) {
+            const laSeg = segs[(curSegIdx + la) % segs.length];
+            if (laSeg && laSeg.pitWall) {
+              pitHintSeg = laSeg;
+              break;
+            }
+          }
+        }
+        const pitSide = pitHintSeg ? (pitHintSeg.pitSide || 1) : 1;
+        const lapBannerShowing = (this.lapBannerTimer > 0 && !this.finishingRace);
+        const pitUnlocked = !!(this.player && this.raceTimer > 6.5 && this.player.totalDistance > (START_LINE_Z + 1800) && !this.isQualifying && this.gameMode !== 'TIME_TRIAL');
         if (this.player.inPitLane && this.pitProgress > 0) {
           const pw = 136;
           const ph = 16;
           const px = Math.round((INTERNAL_WIDTH - pw) / 2);
-          const py = topY + 36;
+          const py = lapBannerShowing ? (topY + 62) : (topY + 36);
           ctx.fillStyle = 'rgba(6, 16, 28, 0.90)';
           ctx.fillRect(px, py, pw, ph);
           ctx.strokeStyle = '#00E676';
@@ -870,21 +883,53 @@
           ctx.fillRect(px + 2, py + ph - 4, Math.round((pw - 4) * Math.min(1, this.pitProgress)), 2.5);
           ctx.textAlign = 'center';
           ctx.font = 'bold 6.4px monospace';
-          ctx.fillText(`🔧 BOX RELÂMPAGO: ${Math.round(this.pitProgress * 100)}%`, INTERNAL_WIDTH / 2, py + 8.5);
-        } else if (curSeg && curSeg.pitWall && this.player.laps >= 1 && this.player.pitUsedLap !== this.player.laps && this.player.nitroCharges < 3 && this.gameMode !== 'TIME_TRIAL') {
-          const bw = 110;
-          const bh = 11;
-          const bx = Math.round((INTERNAL_WIDTH - bw) / 2);
-          const by = topY + 36;
-          ctx.fillStyle = 'rgba(6, 16, 28, 0.78)';
-          ctx.fillRect(bx, by, bw, bh);
-          ctx.strokeStyle = '#00E5FF';
-          ctx.lineWidth = 0.8;
-          ctx.strokeRect(bx, by, bw, bh);
+          ctx.fillText(`⛽ PIT LANE (150 KM/H): ${Math.round(this.pitProgress * 100)}%`, INTERNAL_WIDTH / 2, py + 8.5);
+        } else if (pitHintSeg && pitUnlocked && this.player.pitUsedLap !== this.player.laps) {
+          const needNitro = this.player.nitroCharges < 3;
+          const blinkPit = (Math.sin(performance.now() / 140) + 1) * 0.5;
+          // Só mostra o pill central quando o banner de volta NÃO está na tela para não conflitar
+          if (!lapBannerShowing) {
+            const bw = needNitro ? 142 : 146;
+            const bh = 13;
+            const bx = Math.round((INTERNAL_WIDTH - bw) / 2);
+            const by = topY + 36;
+            ctx.fillStyle = 'rgba(6, 16, 28, 0.86)';
+            ctx.fillRect(bx, by, bw, bh);
+            ctx.strokeStyle = needNitro ? (blinkPit > 0.45 ? '#00E676' : '#00E5FF') : '#64748B';
+            ctx.lineWidth = needNitro ? 1.1 : 0.8;
+            ctx.strokeRect(bx, by, bw, bh);
+            ctx.textAlign = 'center';
+            ctx.fillStyle = needNitro ? (blinkPit > 0.45 ? '#00E676' : '#00E5FF') : '#CBD5E1';
+            ctx.font = 'bold 6.2px monospace';
+            const dirLabel = pitSide < 0 ? '◀ ESQ' : 'DIR ▶';
+            ctx.fillText(needNitro ? `⛽ PIT LANE ABERTO (${dirLabel})` : `PIT ABERTO (${dirLabel}) • NITRO 3/3`, INTERNAL_WIDTH / 2, by + 9);
+          }
+
+          // Seta direcional animada no lado correspondente indicando a entrada do Pit Lane
+          const arrowPulse = Math.sin(performance.now() / 110) * 3 * pitSide;
+          const ax = (pitSide > 0 ? (INTERNAL_WIDTH - 46) : 46) + arrowPulse;
+          const ay = Math.round(INTERNAL_HEIGHT * 0.46);
+          ctx.fillStyle = 'rgba(6, 16, 28, 0.82)';
+          ctx.fillRect(ax - 19, ay - 11, 38, 22);
+          ctx.strokeStyle = needNitro ? '#00FF88' : '#38BDF8';
+          ctx.lineWidth = 1.2;
+          ctx.strokeRect(ax - 19, ay - 11, 38, 22);
           ctx.textAlign = 'center';
-          ctx.fillStyle = '#00E5FF';
-          ctx.font = 'bold 5.8px monospace';
-          ctx.fillText('◀ BOX ABERTO (ESQ)', INTERNAL_WIDTH / 2, by + 7.8);
+          ctx.fillStyle = needNitro ? (blinkPit > 0.45 ? '#00FF88' : '#A7F3D0') : '#38BDF8';
+          ctx.font = 'bold 6px monospace';
+          ctx.fillText('PIT', ax + (pitSide > 0 ? -4 : 4), ay + 2);
+          ctx.beginPath();
+          if (pitSide > 0) {
+            ctx.moveTo(ax + 6, ay - 6);
+            ctx.lineTo(ax + 15, ay);
+            ctx.lineTo(ax + 6, ay + 6);
+          } else {
+            ctx.moveTo(ax - 6, ay - 6);
+            ctx.lineTo(ax - 15, ay);
+            ctx.lineTo(ax - 6, ay + 6);
+          }
+          ctx.closePath();
+          ctx.fill();
         }
       }
 

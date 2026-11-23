@@ -292,8 +292,8 @@
       const archH = p1.w * 0.66;
       const postW = Math.max(2.5, p1.w * 0.08);
       const bannerH = Math.max(5, p1.w * 0.18);
-      const leftX = p1.x - p1.w * 1.10;
-      const rightX = p1.x + p1.w * 1.10;
+      const leftX = p1.x - p1.w * (segment.pitWall && segment.pitSide === -1 ? 2.28 : 1.10);
+      const rightX = p1.x + p1.w * (segment.pitWall && segment.pitSide !== -1 ? 2.28 : 1.10);
       const topY = p1.y - archH;
 
       ctx.save();
@@ -436,6 +436,51 @@
       this.drawPoly(ctx, p1.x - p1.w - r1, segBottomY, p1.x - p1.w, segBottomY, p2.x - p2.w, topY, p2.x - p2.w - r2, topY, c.rumble);
       this.drawPoly(ctx, p1.x + p1.w, segBottomY, p1.x + p1.w + r1, segBottomY, p2.x + p2.w + r2, topY, p2.x + p2.w, topY, c.rumble);
 
+      // Corredor do Pit Lane (estilo Top Gear 1: direita ou esquerda, entrada verde e saída em diagonal)
+      if (segment.pitWall) {
+        const ps = segment.pitSide || 1;
+        const isLightPit = Math.floor(segment.index / 3) % 2 === 0;
+        const pitAsphalt = isLightPit ? '#2B3340' : '#242B36';
+        const outer1 = segment.pitExit ? (2.26 - 1.22 * (segment.pitExitT1 || 0)) : 2.26;
+        const outer2 = segment.pitExit ? (2.26 - 1.22 * (segment.pitExitT2 || 0)) : 2.26;
+        const mid1 = segment.pitExit ? (1.65 - 0.65 * (segment.pitExitT1 || 0)) : 1.65;
+        const mid2 = segment.pitExit ? (1.65 - 0.65 * (segment.pitExitT2 || 0)) : 1.65;
+        this.drawPoly(ctx, p1.x + p1.w * ps * 1.04, segBottomY, p1.x + p1.w * ps * outer1, segBottomY, p2.x + p2.w * ps * outer2, topY, p2.x + p2.w * ps * 1.04, topY, pitAsphalt);
+        // Faixa central amarela no corredor dos boxes (acompanhando a diagonal na saída)
+        if (segment.index % 4 < 2) {
+          this.drawPoly(ctx, p1.x + p1.w * ps * (mid1 - 0.02), segBottomY, p1.x + p1.w * ps * (mid1 + 0.02), segBottomY, p2.x + p2.w * ps * (mid2 + 0.02), topY, p2.x + p2.w * ps * (mid2 - 0.02), topY, '#FACC15');
+        }
+        // Marcação luminosa de entrada (lista verde contínua no chão + faixas) / saída no Pit Lane
+        const pitClosedNow = !this.player || this.raceTimer <= 6.5 || this.player.totalDistance <= (START_LINE_Z + 1800) || this.gameMode === 'TIME_TRIAL' || this.isQualifying;
+        if (!pitClosedNow && segment.pitEntry) {
+          // Lista verde contínua na borda da entrada para reconhecer imediatamente onde entrar
+          this.drawPoly(ctx, p1.x + p1.w * ps * 1.02, segBottomY, p1.x + p1.w * ps * 1.24, segBottomY, p2.x + p2.w * ps * 1.24, topY, p2.x + p2.w * ps * 1.02, topY, '#00E676');
+          if (segment.index % 4 === 0) {
+            const blinkEntry = (Math.sin(performance.now() / 110) + 1) * 0.5;
+            const entryCol = blinkEntry > 0.45 ? '#00FF88' : '#059669';
+            this.drawPoly(ctx, p1.x + p1.w * ps * 1.24, segBottomY, p1.x + p1.w * ps * 2.18, segBottomY, p2.x + p2.w * ps * 2.18, topY, p2.x + p2.w * ps * 1.24, topY, entryCol);
+          }
+        } else if (!pitClosedNow && segment.pitExit && segment.index % 4 === 0) {
+          const markOut1 = Math.max(1.12, outer1 - 0.08);
+          const markOut2 = Math.max(1.12, outer2 - 0.08);
+          this.drawPoly(ctx, p1.x + p1.w * ps * 1.10, segBottomY, p1.x + p1.w * ps * markOut1, segBottomY, p2.x + p2.w * ps * markOut2, topY, p2.x + p2.w * ps * 1.10, topY, '#38BDF8');
+        }
+        // Barreira de pneus/piquetes 3D (alta verticalmente): sempre no trecho central; na Volta 1 (largada) fecha entrada/saída também!
+        if ((segment.pitBarrier || pitClosedNow) && p1.w > 6 && segment.index % 2 === 0) {
+          const tx1 = p1.x + p1.w * ps * 1.05;
+          const tw1 = Math.max(3.0, p1.w * 0.09);
+          const th1 = Math.max(6.0, p1.w * 0.22);
+          const isClosedGate = !segment.pitBarrier && pitClosedNow;
+          const tireCol = isClosedGate
+            ? ((Math.floor(segment.index / 2) % 2 === 0) ? '#F97316' : '#F8FAFC')
+            : ((Math.floor(segment.index / 2) % 2 === 0) ? '#DC2626' : '#F8FAFC');
+          ctx.fillStyle = isClosedGate ? '#7C2D12' : '#0F172A';
+          ctx.fillRect(tx1 - tw1 * 0.5, segBottomY - th1, tw1, th1);
+          ctx.fillStyle = tireCol;
+          ctx.fillRect(tx1 - tw1 * 0.42, segBottomY - th1 * 0.86, tw1 * 0.84, th1 * 0.44);
+        }
+      }
+
       // Guardrails 3D metálicos com faixas alternadas vermelho e branco (estilo Top Gear)
       if (segment.guardrailLeft && p1.w > 7) {
         const gw1 = p1.w * 0.05, gw2 = p2.w * 0.05;
@@ -462,11 +507,13 @@
         this.drawPoly(ctx, gx1, segBottomY - gh1 * 0.5, gx1 + gw1, segBottomY - gh1 * 0.5, gx2 + gw2, topY - gh2 * 0.5, gx2, topY - gh2 * 0.5, railColor);
       }
 
-      // Mureta dos Boxes 3D contínua na Reta Principal (estilo Autódromo de Interlagos)
+      // Mureta dos Boxes 3D contínua na Reta Principal (por fora do corredor do Pit Lane, fechando em diagonal na saída)
       if (segment.pitWall && p1.w > 6) {
-        const wallDist = 1.18; // logo após a zebra amarela e verde
-        const wx1 = p1.x + p1.w * wallDist;
-        const wx2 = p2.x + p2.w * wallDist;
+        const ps = segment.pitSide || 1;
+        const wallDist1 = segment.pitExit ? (2.26 - 1.22 * (segment.pitExitT1 || 0)) : 2.26;
+        const wallDist2 = segment.pitExit ? (2.26 - 1.22 * (segment.pitExitT2 || 0)) : 2.26;
+        const wx1 = p1.x + p1.w * ps * wallDist1;
+        const wx2 = p2.x + p2.w * ps * wallDist2;
         const wh1 = Math.max(3.5, p1.w * 0.18);
         const wh2 = Math.max(1.8, p2.w * 0.18);
         const ww1 = Math.max(2.2, p1.w * 0.06);

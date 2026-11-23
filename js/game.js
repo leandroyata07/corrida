@@ -972,6 +972,7 @@
       this.player.nitroTimer = 0;
       this.player.nitroDecayTimer = 0;
       this.player.inPitLane = false;
+      this.player.pitEntered = false;
       this.player.pitTimer = 0;
       this.player.pitUsedLap = -1;
       this.player.eliminated = false;
@@ -3495,32 +3496,62 @@
         }
         if (curRank > 0) this.prevPlayerRank = curRank;
 
-        // Pit Lane Estratégico (faixa esquerda na reta principal, a partir da volta 2, 1x por volta)
+        // Pit Lane estilo Top Gear 1 (fechado na volta 1; corredor largo à direita ou esquerda; obrigatório ir até a saída normal)
         const curPitSeg = this.findSegment(this.player.z);
-        if (
+        const ps = (curPitSeg && curPitSeg.pitSide) ? curPitSeg.pitSide : 1;
+        const pxSide = this.player.x * ps;
+        const pitOpenForPlayer = (
           this.gameMode !== 'TIME_TRIAL' &&
           !this.isQualifying &&
-          this.player.laps >= 1 &&
+          this.raceTimer > 6.5 &&
+          this.player.totalDistance > (START_LINE_Z + 1800)
+        );
+
+        // Na largada / volta 1 (ou modos sem pit), não permite entrar na faixa do Pit Lane
+        if (curPitSeg && curPitSeg.pitWall && !pitOpenForPlayer && pxSide > 0.96) {
+          this.player.x = ps * 0.96;
+        }
+
+        // Uma vez dentro do Pit Lane, não pode sair para a pista antes da saída normal (pitExit)
+        if (this.player.pitEntered && curPitSeg && curPitSeg.pitWall && !curPitSeg.pitExit && this.player.x * ps < 1.13) {
+          this.player.x = ps * 1.13;
+        }
+
+        const inPitCorridor = !!(
+          pitOpenForPlayer &&
           this.player.pitUsedLap !== this.player.laps &&
           curPitSeg && curPitSeg.pitWall &&
-          this.player.x <= -0.82 && this.player.x >= -1.32
-        ) {
+          (this.player.x * ps) >= 1.06 && (this.player.x * ps) <= 2.24
+        );
+
+        // Barreira de pneus entre a pista principal e o Pit Lane
+        if (curPitSeg && curPitSeg.pitBarrier && pitOpenForPlayer && (this.player.x * ps) >= 0.96 && (this.player.x * ps) <= 1.12) {
+          if (this.player.inPitLane || this.player.pitEntered) {
+            this.player.x = ps * 1.13;
+          } else {
+            this.player.x = ps * 0.95;
+          }
+          this.player.speed *= 0.97;
+        }
+
+        if (inPitCorridor) {
           this.player.inPitLane = true;
-          this.player.speed = Math.min(this.player.speed, 135);
+          this.player.pitEntered = true;
+          this.player.speed = Math.min(this.player.speed, 150);
           this.player.pitTimer = (this.player.pitTimer || 0) + dt;
-          this.pitProgress = Math.min(1, this.player.pitTimer / 1.1);
-          if (this.player.pitTimer >= 1.1) {
+          this.pitProgress = Math.min(1, this.player.pitTimer / 0.85);
+          const pitMaxX = curPitSeg.pitExit ? Math.max(1.04, 2.16 - 1.12 * (curPitSeg.pitExitT1 || 0)) : 2.16;
+          if (this.player.x * ps > pitMaxX) this.player.x = ps * pitMaxX;
+        } else {
+          if (this.player.pitEntered && this.player.pitTimer >= 0.65) {
             this.player.nitroCharges = 3;
             this.player.pitUsedLap = this.player.laps;
-            this.player.inPitLane = false;
-            this.player.pitTimer = 0;
-            this.pitProgress = 0;
-            this.player.speed = Math.max(this.player.speed, 195);
+            this.player.speed = Math.max(this.player.speed, 205);
             if (this.audio) this.audio.playBeep(784, 0.2);
-            if (this.radio) this.radio.speak('Box relâmpago concluído! Nitro 100%!', false);
+            if (this.radio) this.radio.speak('Pit Stop concluído! Nitro 100% na saída!', false);
           }
-        } else {
           this.player.inPitLane = false;
+          this.player.pitEntered = false;
           this.player.pitTimer = 0;
           this.pitProgress = 0;
         }
@@ -3849,9 +3880,13 @@
       }
       p.x = Math.max(Math.min(p.x, 2.25), -2.25);
 
+      if (p.inPitLane) {
+        p.speed = Math.min(p.speed, 150);
+      }
+
       // Física diferenciada entre Zebra (Curb) e Grama (Off-road) — sem tremer a tela à toa!
       const absX = Math.abs(p.x);
-      const isOffroad = absX > 1.08;
+      const isOffroad = absX > 1.08 && !p.inPitLane;
 
       if (isOffroad && p.speed > 45) {
         const offDepth = Math.min(1.5, (absX - 1.08) * 1.8 + 0.5);
@@ -3868,7 +3903,7 @@
       this.cameraRoll += (targetRoll - this.cameraRoll) * 7.5 * dt;
 
       // Faíscas metálicas ao raspar no guard-rail / muretas laterais ou zebra em alta velocidade
-      if (absX >= 1.20 && p.speed > 55) {
+      if (absX >= 1.20 && p.speed > 55 && !p.inPitLane) {
         const sparkSide = (p.x > 0 ? 1 : -1);
         const sparkX = p.x + sparkSide * 0.12;
         const sparkCol = (Math.random() < 0.4) ? '#FFFFFF' : ((Math.random() < 0.5) ? '#FFD700' : '#FF6D00');
@@ -4256,6 +4291,50 @@
           }
         }
 
+        // Bot usando o Pit Lane por estratégia (a partir da volta 2, decide 1x por volta se compensa parar ou ganhar posição na pista)
+        const botPs = (botSeg && botSeg.pitSide) ? botSeg.pitSide : 1;
+        const botCanPit = (!this.isQualifying && this.gameMode !== 'TIME_TRIAL' && bot.laps >= 1 && bot.pitUsedLap !== bot.laps);
+        if (botCanPit && botSeg && botSeg.pitWall) {
+          if (!bot.pitEntered && botSeg.pitEntry && bot.pitStrategyLap !== bot.laps) {
+            bot.pitStrategyLap = bot.laps;
+            let pitChance = 0;
+            if (bot.nitroCharges === 0) pitChance = 0.65;
+            else if (bot.nitroCharges === 1) pitChance = 0.35;
+            bot.pitWant = Math.random() < pitChance;
+          }
+          if (bot.pitWant || bot.pitEntered) {
+            if (botSeg.pitExit && bot.pitEntered) {
+              bot.targetX = botPs * 0.55;
+              bot.pitWant = false;
+            } else {
+              bot.targetX = botPs * (1.58 + (((bot.id || 0) % 3) - 1) * 0.20);
+            }
+            if ((bot.x * botPs) >= 1.04) {
+              bot.inPitLane = true;
+              bot.pitEntered = true;
+              bot.pitTimer = (bot.pitTimer || 0) + dt;
+              targetSpeed = Math.min(targetSpeed, 150);
+              bot.speed = Math.min(bot.speed, 150);
+            }
+            if (bot.pitEntered && !botSeg.pitExit && (bot.x * botPs) < 1.13) {
+              bot.x = botPs * 1.13;
+            }
+          }
+        } else if (bot.pitEntered) {
+          if ((bot.pitTimer || 0) >= 0.65) {
+            bot.nitroCharges = 3;
+            bot.pitUsedLap = bot.laps;
+            bot.speed = Math.max(bot.speed, 200);
+          }
+          bot.inPitLane = false;
+          bot.pitEntered = false;
+          bot.pitWant = false;
+          bot.pitTimer = 0;
+        } else {
+          bot.inPitLane = false;
+          bot.pitWant = false;
+        }
+
         // Aplicação de aceleração e frenagem do Bot
         if (blocked && bot.speed > targetSpeed + 12 && bot.bumpBoostTimer <= 0 && !bot.isNitro) {
           bot.speed = Math.max(bot.speed - 190 * dt, targetSpeed);
@@ -4294,7 +4373,7 @@
             bot.bumpVelX = 0;
           }
         }
-        if (Math.abs(bot.x) > 1.0) {
+        if (Math.abs(bot.x) > 1.0 && !bot.inPitLane && !bot.pitEntered) {
           // Na grama, desacelera suavemente por atrito e busca retornar a pista
           bot.targetX = (bot.x > 0 ? 0.70 : -0.70);
           bot.speed = Math.max(40, bot.speed - 90 * dt);
@@ -4334,7 +4413,7 @@
 
       for (let i = 0; i < this.cars.length; i++) {
         const bot = this.cars[i];
-        if (bot.isPlayer || bot.eliminated || p.inPitLane) continue;
+        if (bot.isPlayer || bot.eliminated || (!!p.inPitLane !== !!bot.inPitLane)) continue;
         if (this.finishingRace) continue; // Após bandeirar, o carro do jogador desacelera em segurança sem colisão
 
         // dz < 0: bot está à frente do jogador | dz > 0: bot está atrás do jogador
