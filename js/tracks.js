@@ -291,20 +291,20 @@ class TrackBuilder {
           }
         }
 
-        const hasPitWall = !!(sec.pitWall && i >= 10 && i < segCount - 12);
-        const pitEntry = !!(hasPitWall && i >= START_LINE_SEG && i < START_LINE_SEG + 28);
-        const pitExitStart = segCount - 34;
-        const pitExit = !!(hasPitWall && i >= pitExitStart);
-        const pitExitLen = Math.max(1, (segCount - 12) - pitExitStart);
-        const pitExitT1 = pitExit ? Math.max(0, Math.min(1, (i - pitExitStart) / pitExitLen)) : 0;
-        const pitExitT2 = pitExit ? Math.max(0, Math.min(1, (i + 1 - pitExitStart) / pitExitLen)) : 0;
+        const hasPitWall = !!(idx >= 18 && idx < 90 && !isTunnel && !isBridge);
+        const pitEntry = !!(hasPitWall && idx >= START_LINE_SEG && idx < START_LINE_SEG + 20);
+        const pitExitStart = 74;
+        const pitExit = !!(hasPitWall && idx >= pitExitStart);
+        const pitExitLen = 90 - pitExitStart;
+        const pitExitT1 = pitExit ? Math.max(0, Math.min(1, (idx - pitExitStart) / pitExitLen)) : 0;
+        const pitExitT2 = pitExit ? Math.max(0, Math.min(1, (idx + 1 - pitExitStart) / pitExitLen)) : 0;
         const pitBarrier = !!(hasPitWall && !pitEntry && !pitExit);
 
-        // No trecho do Pit Lane, todo item de paisagem do lado dos boxes fica na grama externa
-        if (sec.pitWall && sceneries.length > 0) {
+        // No trecho do Pit Lane (e margem de ±4 segs), todo item de paisagem do lado dos boxes fica bem na grama externa
+        if (idx >= 14 && idx < 94 && sceneries.length > 0) {
           for (let si = 0; si < sceneries.length; si++) {
             if (sceneries[si].offset * pitSide > 0) {
-              sceneries[si].offset = pitSide * Math.max(2.55, Math.abs(sceneries[si].offset) + 0.85);
+              sceneries[si].offset = pitSide * Math.max(2.75, Math.abs(sceneries[si].offset) + 0.95);
             }
           }
         }
@@ -318,8 +318,8 @@ class TrackBuilder {
           curve: curveVal,
           color: segColors,
           scenery: sceneryObj,
-          guardrailLeft: guardLeft,
-          guardrailRight: guardRight,
+          guardrailLeft: (hasPitWall && pitSide === -1) ? false : guardLeft,
+          guardrailRight: (hasPitWall && pitSide === 1) ? false : guardRight,
           pitWall: hasPitWall,
           pitSide: pitSide,
           pitEntry: pitEntry,
@@ -520,6 +520,12 @@ class TrackBuilder {
       for (let i = 0; i < segments.length; i++) {
         const seg = segments[i];
         seg.curve = -seg.curve;
+        if (seg.pitSide) seg.pitSide = -seg.pitSide;
+        const tmpGuard = seg.guardrailLeft;
+        seg.guardrailLeft = seg.guardrailRight;
+        seg.guardrailRight = tmpGuard;
+        if (seg.gridBox === 'left') seg.gridBox = 'right';
+        else if (seg.gridBox === 'right') seg.gridBox = 'left';
         if (seg.scenery) {
           const flipSc = (sc) => {
             sc.offset = -sc.offset;

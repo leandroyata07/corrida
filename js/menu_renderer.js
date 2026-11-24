@@ -1627,17 +1627,6 @@
       // Carro em exibição na cor selecionada com movimento suave de um lado para o outro
       const showcaseSteerColor = Math.sin(now * 0.0020) * 0.76;
       const showcaseBrakeColor = (Math.floor(now / 1800) % 4 === 0);
-      const sObj = (typeof STRIPE_STYLES !== 'undefined' && STRIPE_STYLES[this.stripeStyle || 0]) ? STRIPE_STYLES[this.stripeStyle || 0] : { name: 'SEM FAIXA' };
-
-      // Botão de personalização de Faixa Esportiva no topo direito do card
-      ctx.fillStyle = 'rgba(15, 25, 42, 0.92)';
-      ctx.fillRect(bX + bW - 88, bY + 5, 82, 15);
-      ctx.strokeStyle = '#FFD700';
-      ctx.lineWidth = 0.9;
-      ctx.strokeRect(bX + bW - 88, bY + 5, 82, 15);
-      ctx.fillStyle = '#FFD700';
-      ctx.font = 'bold 5.8px monospace';
-      ctx.fillText(`${sObj.name}`, bX + bW - 47, bY + 12.5);
 
       car.render(
         ctx,
@@ -1652,8 +1641,7 @@
           isNitro: false,
           wheelPhase: now * 0.008,
           isNight: true,
-          speed: 0,
-          stripeStyle: this.stripeStyle || 0
+          speed: 0
         }
       );
 
@@ -1733,26 +1721,31 @@
       const btnC = L.btnConfirm;
       if (btnC) {
         const confirmGrad = ctx.createLinearGradient(btnC.x, btnC.y, btnC.x, btnC.y + btnC.h);
-        confirmGrad.addColorStop(0, blink ? '#00E5FF' : '#00B0FF');
-        confirmGrad.addColorStop(1, blink ? '#0091EA' : '#005F9E');
+        if (this.colorConfirmReady) {
+          confirmGrad.addColorStop(0, blink ? '#00E676' : '#10B981');
+          confirmGrad.addColorStop(1, blink ? '#059669' : '#047857');
+        } else {
+          confirmGrad.addColorStop(0, blink ? '#00E5FF' : '#00B0FF');
+          confirmGrad.addColorStop(1, blink ? '#0091EA' : '#005F9E');
+        }
         ctx.fillStyle = confirmGrad;
         ctx.fillRect(btnC.x, btnC.y, btnC.w, btnC.h);
-        ctx.strokeStyle = blink ? '#FFFFFF' : '#FFD700';
-        ctx.lineWidth = 1.3;
+        ctx.strokeStyle = this.colorConfirmReady ? '#FFFFFF' : (blink ? '#FFFFFF' : '#FFD700');
+        ctx.lineWidth = this.colorConfirmReady ? 1.8 : 1.3;
         ctx.strokeRect(btnC.x, btnC.y, btnC.w, btnC.h);
         ctx.fillStyle = '#060D1A';
-        ctx.font = touchSafe ? 'bold 7.8px monospace' : 'bold 8.8px monospace';
-        ctx.fillText('CONFIRMAR [A] ▶', btnC.x + btnC.w / 2, btnC.y + btnC.h / 2 + 3);
+        ctx.font = touchSafe ? 'bold 7.2px monospace' : 'bold 8.0px monospace';
+        ctx.fillText(this.colorConfirmReady ? 'CONTINUAR [ENTER] ▶' : 'CONFIRMAR [A] ▶', btnC.x + btnC.w / 2, btnC.y + btnC.h / 2 + 3);
       }
 
       ctx.fillStyle = '#90A4AE';
-      ctx.font = touchSafe ? '6.0px monospace' : '7.2px monospace';
+      ctx.font = touchSafe ? '6.0px monospace' : '6.8px monospace';
       ctx.fillText(
         touchSafe
-          ? '◄ ► TROCA COR | TOQUE NA COR | [A] CONFIRMAR | [B] VOLTAR'
-          : '◄ ► ESCOLHE A COR | CLIQUE NA COR OU TECLAS [C]/[1-0] | [A] / ENTER CONFIRMAR | [B] VOLTAR',
+          ? '◄ ► ▲ ▼ TROCA COR | TOQUE NA COR | [A] CONFIRMAR | [B] VOLTAR'
+          : '◄ ► ▲ ▼ ESCOLHE A COR | 1º ENTER SELECIONA • 2º ENTER CONTINUA | [B] VOLTAR',
         INTERNAL_WIDTH / 2,
-        touchSafe ? 193 : 209
+        touchSafe ? 193 : 210
       );
       ctx.restore();
     }

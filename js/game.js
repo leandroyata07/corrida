@@ -290,8 +290,7 @@
       this.quickKnockout = false;
       this.pitProgress = 0;
       this.champSubMode = 'OFFICIAL'; // OFFICIAL, CUSTOM, COPA_NE, COPA_SUL, COPA_SE, COPA_NCO
-      this.wheelColorIndex = 0;
-      this.stripeStyle = 0;
+      this.colorConfirmReady = false;
       this.dynamicWeather = '';
       this.dynamicWeatherTriggered = false;
       this.stageObjective = null;
@@ -759,11 +758,16 @@
         ANT: 'PRESSURE_PRONE',
         BOR: 'PRESSURE_PRONE'
       };
+      const shuffledColors = CAR_COLORS.slice();
+      for (let i = shuffledColors.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledColors[i], shuffledColors[j]] = [shuffledColors[j], shuffledColors[i]];
+      }
       const personalities = ['AGGRESSIVE', 'TECHNICAL', 'PRESSURE_PRONE'];
       for (let i = 0; i < F1_DRIVERS.length && i < 19; i++) {
         const drv = F1_DRIVERS[i];
         const assignedModel = availableModels[i % availableModels.length] || CAR_MODELS[0];
-        const randColor = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)].hex;
+        const randColor = shuffledColors[i % shuffledColors.length].hex;
         const baseSkill = 0.98 - (i * 0.007) + (Math.random() - 0.5) * 0.035;
         const pers = DRIVER_TRAITS[drv.code] || personalities[i % 3];
         this.seasonBots.push({
@@ -2504,30 +2508,22 @@
               }
             }
 
-            // Toque em qualquer ponto da faixa horizontal das cores
+            // Toque próximo a qualquer amostra nas 2 fileiras de cores
             if (!clickedSwatch && sw.length > 0) {
-              const swY = sw[0].y;
-              if (click.y >= swY - 14 && click.y <= swY + 14 && click.x >= sw[0].x - 14 && click.x <= sw[sw.length - 1].x + 14) {
-                let bestIdx = 0, bestDist = 999999;
-                for (let k = 0; k < sw.length; k++) {
-                  const d = Math.abs(click.x - sw[k].x);
-                  if (d < bestDist) {
-                    bestDist = d;
-                    bestIdx = sw[k].i;
-                  }
+              let bestIdx = -1, bestDist = 18;
+              for (let k = 0; k < sw.length; k++) {
+                const d = Math.hypot(click.x - sw[k].x, click.y - sw[k].y);
+                if (d < bestDist) {
+                  bestDist = d;
+                  bestIdx = sw[k].i;
                 }
+              }
+              if (bestIdx >= 0) {
                 this.colorIndex = bestIdx;
                 this.audio.playBeep(480, 0.05);
                 clickedSwatch = true;
               }
             }
-          }
-
-          // Botão de Faixa Esportiva (topo direito) dentro do card de pintura
-          if (click.x >= bX + bW - 88 && click.x <= bX + bW - 6 && click.y >= bY + 5 && click.y <= bY + 21) {
-            this.stripeStyle = (this.stripeStyle + 1) % STRIPE_STYLES.length;
-            this.audio.playBeep(500, 0.05);
-            clickedSwatch = true;
           }
 
           // Toque no lado esquerdo ou direito do painel para navegar nas cores
@@ -2540,34 +2536,50 @@
           }
         }
 
-        if (this.input.justPressedUp || this.input.justPressedDown) {
-          this.stripeStyle = (this.stripeStyle + 1) % STRIPE_STYLES.length;
-          this.audio.playBeep(500, 0.05);
-        }
-
-        // Navegação de Cores via Controle (D-pad / Analógico) ou Teclado (Setas / A / D)
+        // Navegação de Cores via Controle (D-pad / Analógico) ou Teclado (4 Setas / W A S D)
         if (this.input.justPressedLeft) {
           this.audio.playBeep(440, 0.05);
           this.colorIndex = (this.colorIndex - 1 + CAR_COLORS.length) % CAR_COLORS.length;
+          this.colorConfirmReady = false;
         }
         if (this.input.justPressedRight) {
           this.audio.playBeep(440, 0.05);
           this.colorIndex = (this.colorIndex + 1) % CAR_COLORS.length;
+          this.colorConfirmReady = false;
+        }
+        if (this.input.justPressedUp) {
+          this.audio.playBeep(440, 0.05);
+          this.colorIndex = (this.colorIndex - 10 + CAR_COLORS.length) % CAR_COLORS.length;
+          this.colorConfirmReady = false;
+        }
+        if (this.input.justPressedDown) {
+          this.audio.playBeep(440, 0.05);
+          this.colorIndex = (this.colorIndex + 10) % CAR_COLORS.length;
+          this.colorConfirmReady = false;
         }
         if (this.input.justPressedColor) {
           this.audio.playBeep(440, 0.05);
           this.colorIndex = (this.colorIndex + 1) % CAR_COLORS.length;
+          this.colorConfirmReady = false;
         }
         if (this.input.lastDigit !== null && this.input.lastDigit !== undefined) {
           const d = this.input.lastDigit;
           const targetColor = (d === 0) ? 9 : (d - 1);
           if (targetColor >= 0 && targetColor < CAR_COLORS.length) {
             this.colorIndex = targetColor;
+            this.colorConfirmReady = false;
             this.audio.playBeep(480, 0.05);
           }
         }
 
         if (this.input.justPressedEnter) {
+          if (!this.colorConfirmReady) {
+            this.colorConfirmReady = true;
+            this.audio.playBeep(587, 0.08);
+            this.input.clearPulses();
+            return;
+          }
+          this.colorConfirmReady = false;
           this.audio.playBeep(523, 0.12);
           this.state = 'NAME_INPUT';
           if (this.nameWrapper) this.nameWrapper.classList.add('show');
@@ -3545,16 +3557,17 @@
           this.player.isNitro = false;
           this.player.nitroTimer = 0;
           this.player.nitroDecayTimer = 0;
-          this.player.speed = Math.min(this.player.speed, 180);
+          this.player.speed = Math.min(this.player.speed, 140);
           this.player.pitTimer = (this.player.pitTimer || 0) + dt;
-          this.pitProgress = Math.min(1, this.player.pitTimer / 0.85);
+          this.pitProgress = Math.min(1, this.player.pitTimer / 3.8);
           const pitMaxX = curPitSeg.pitExit ? Math.max(1.04, 2.16 - 1.12 * (curPitSeg.pitExitT1 || 0)) : 2.16;
           if (this.player.x * ps > pitMaxX) this.player.x = ps * pitMaxX;
         } else {
           if (this.player.pitEntered && this.player.pitTimer >= 0.65) {
             this.player.nitroCharges = 3;
             this.player.pitUsedLap = this.player.laps;
-            this.player.speed = Math.max(this.player.speed, 205);
+            const exitBoost = Math.round(this.getEffectiveMaxSpeed(this.player) * 0.92);
+            this.player.speed = Math.max(this.player.speed, exitBoost);
             if (this.audio) this.audio.playBeep(784, 0.2);
             if (this.radio) this.radio.speak('Pit Stop concluído! Nitro 100% na saída!', false);
           }
@@ -3889,7 +3902,7 @@
       p.x = Math.max(Math.min(p.x, 2.25), -2.25);
 
       if (p.inPitLane) {
-        p.speed = Math.min(p.speed, 180);
+        p.speed = Math.min(p.speed, 140);
       }
 
       // Física diferenciada entre Zebra (Curb) e Grama (Off-road) — sem tremer a tela à toa!
@@ -4324,8 +4337,8 @@
               bot.nitroTimer = 0;
               bot.nitroDecayTimer = 0;
               bot.pitTimer = (bot.pitTimer || 0) + dt;
-              targetSpeed = Math.min(targetSpeed, 180);
-              bot.speed = Math.min(bot.speed, 180);
+              targetSpeed = Math.min(targetSpeed, 140);
+              bot.speed = Math.min(bot.speed, 140);
             }
             if (bot.pitEntered && !botSeg.pitExit && (bot.x * botPs) < 1.13) {
               bot.x = botPs * 1.13;
@@ -4335,7 +4348,8 @@
           if ((bot.pitTimer || 0) >= 0.65) {
             bot.nitroCharges = 3;
             bot.pitUsedLap = bot.laps;
-            bot.speed = Math.max(bot.speed, 200);
+            const botExitBoost = Math.round(this.getEffectiveMaxSpeed(bot) * 0.92);
+            bot.speed = Math.max(bot.speed, botExitBoost);
           }
           bot.inPitLane = false;
           bot.pitEntered = false;
@@ -5022,8 +5036,7 @@
               isNitro: this.player.isNitro,
               wheelPhase: this.player.z * 0.035,
               isNight: isDark,
-              speed: this.player.speed,
-              stripeStyle: this.stripeStyle || 0
+              speed: this.player.speed
             }
           );
         }

@@ -883,7 +883,7 @@
           ctx.fillRect(px + 2, py + ph - 4, Math.round((pw - 4) * Math.min(1, this.pitProgress)), 2.5);
           ctx.textAlign = 'center';
           ctx.font = 'bold 6.4px monospace';
-          ctx.fillText(`⛽ PIT LANE (180 KM/H): ${Math.round(this.pitProgress * 100)}%`, INTERNAL_WIDTH / 2, py + 8.5);
+          ctx.fillText(`⛽ PIT LANE (140 KM/H): ${Math.round(this.pitProgress * 100)}%`, INTERNAL_WIDTH / 2, py + 8.5);
         } else if (pitHintSeg && pitUnlocked && this.player.pitUsedLap !== this.player.laps) {
           const needNitro = this.player.nitroCharges < 3;
           const blinkPit = (Math.sin(performance.now() / 140) + 1) * 0.5;
@@ -1178,25 +1178,29 @@
 
       // Card amplo e elegante de personalização e pintura
       const bW = touchSafe ? Math.min(W - 12, 290) : Math.min(W - 20, 340);
-      const bH = touchSafe ? 136 : 150;
+      const bH = touchSafe ? 148 : 160;
       const bX = Math.round((W - bW) / 2);
-      const bY = touchSafe ? 17 : 19;
+      const bY = touchSafe ? 15 : 16;
 
-      // 14 Amostras de cores confortáveis e bem espaçadas abaixo do badge
+      // 20 Amostras de cores em 2 fileiras de 10 (confortáveis e sem invadir o badge)
       const numColors = CAR_COLORS.length;
-      const swY = bY + (touchSafe ? 96 : 108);
-      const swR = touchSafe ? 5.2 : 6.2;
-      const swGap = touchSafe ? 18.0 : 21.6;
-      const totalSwW = (numColors - 1) * swGap;
+      const cols = 10;
+      const swY0 = bY + (touchSafe ? 93 : 104);
+      const rowGap = touchSafe ? 23 : 26;
+      const swR = touchSafe ? 5.2 : 6.0;
+      const swGap = touchSafe ? 24.5 : 28.5;
+      const totalSwW = (cols - 1) * swGap;
       const swStartX = W / 2 - totalSwW / 2;
       const sw = [];
       for (let i = 0; i < numColors; i++) {
-        sw.push({ x: swStartX + i * swGap, y: swY, r: swR, i });
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        sw.push({ x: swStartX + col * swGap, y: swY0 + row * rowGap, r: swR, i });
       }
 
       const btnW = touchSafe ? 96 : 112;
       const btnH = touchSafe ? 18 : 20;
-      const btnY = bY + bH + (touchSafe ? 6 : 7);
+      const btnY = bY + bH + (touchSafe ? 4 : 5);
       const btnBack = {
         x: Math.round(bX),
         y: btnY,

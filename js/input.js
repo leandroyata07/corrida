@@ -1529,14 +1529,19 @@
         return Math.max(0, Math.min(1, v));
       };
 
-      // D-Pad Digital (Botões 12, 13, 14, 15 ou Hat Switches)
+      // D-Pad Digital (Botões 12, 13, 14, 15, Hat Switches axes[4..7] ou POV axes[9])
       const hatX = (gp.axes && gp.axes.length > 4) ? gp.axes[4] : ((gp.axes && gp.axes.length > 6) ? gp.axes[6] : 0);
       const hatY = (gp.axes && gp.axes.length > 5) ? gp.axes[5] : ((gp.axes && gp.axes.length > 7) ? gp.axes[7] : 0);
+      const pov = (gp.mapping !== 'standard' && gp.axes && gp.axes.length > 9) ? gp.axes[9] : 99;
+      const povUp = (pov >= -1.05 && pov <= -0.70) || (pov >= 0.70 && pov <= 1.05);
+      const povRight = (pov >= -0.70 && pov <= -0.10);
+      const povDown = (pov >= -0.10 && pov <= 0.45);
+      const povLeft = (pov > 0.45 && pov < 0.90);
 
-      const dpadUp = isBtnPressed(12) || (hatY < -0.42);
-      const dpadDown = isBtnPressed(13) || (hatY > 0.42);
-      const dpadLeft = isBtnPressed(14) || (hatX < -0.42);
-      const dpadRight = isBtnPressed(15) || (hatX > 0.42);
+      const dpadUp = isBtnPressed(12) || (hatY < -0.42) || povUp;
+      const dpadDown = isBtnPressed(13) || (hatY > 0.42) || povDown;
+      const dpadLeft = isBtnPressed(14) || (hatX < -0.42) || povLeft;
+      const dpadRight = isBtnPressed(15) || (hatX > 0.42) || povRight;
 
       // Controle para os lados do carro (analógico esquerdo e digital D-Pad)
       this.gpActiveLeft = dpadLeft || (this.analogSteer < -0.25);
@@ -1552,16 +1557,18 @@
       const btnSelect = isBtnPressed(8);
       const btnStart = isBtnPressed(9);
 
-      // Padrão Xbox Solicitado:
-      // A (Verde) = ACELERA (suporta gatilho RT ou botão A)
+      // Padrão Xbox + Direcionais (D-Pad / Analógico):
+      // A (Verde) / RT / Cima = ACELERA
       const r2Pressure = getTriggerVal(7, 5);
-      this.gpThrottlePressure = btnA ? 1.0 : r2Pressure;
-      this.gpActiveGas = (r2Pressure > 0.08) || btnA;
+      const stickGas = dpadUp || (leftStickY < -0.62);
+      this.gpThrottlePressure = (btnA || stickGas) ? 1.0 : r2Pressure;
+      this.gpActiveGas = (r2Pressure > 0.08) || btnA || stickGas;
 
-      // X (Vermelho) = FREIO (suporta gatilho LT ou botão X)
+      // X (Vermelho) / LT / Baixo = FREIO
       const l2Pressure = getTriggerVal(6, 2);
-      this.gpBrakePressure = btnX ? 1.0 : l2Pressure;
-      this.gpActiveBrake = (l2Pressure > 0.08) || btnX;
+      const stickBrake = dpadDown || (leftStickY > 0.62);
+      this.gpBrakePressure = (btnX || stickBrake) ? 1.0 : l2Pressure;
+      this.gpActiveBrake = (l2Pressure > 0.08) || btnX || stickBrake;
 
       // Y (Amarelo) = NITRO (botão Y ou botões RB/LB)
       this.gpActiveNitro = btnY || btnRB || btnLB;

@@ -516,8 +516,8 @@
         const wx2 = p2.x + p2.w * ps * wallDist2;
         const wh1 = Math.max(3.5, p1.w * 0.18);
         const wh2 = Math.max(1.8, p2.w * 0.18);
-        const ww1 = Math.max(2.2, p1.w * 0.06);
-        const ww2 = Math.max(1.2, p2.w * 0.06);
+        const ww1 = Math.max(2.2, p1.w * 0.06) * ps;
+        const ww2 = Math.max(1.2, p2.w * 0.06) * ps;
 
         // Mureta de concreto
         const isLightWall = Math.floor(segment.index / 3) % 2 === 0;
@@ -544,7 +544,7 @@
           const scrW = Math.max(3, p1.w * 0.08);
           const scrH = Math.max(2, wh1 * 0.45);
           ctx.fillStyle = '#0284C7';
-          ctx.fillRect(wx1, segBottomY - wh1 * 0.8, scrW, scrH);
+          ctx.fillRect(ps > 0 ? wx1 : (wx1 - scrW), segBottomY - wh1 * 0.8, scrW, scrH);
         }
       }
 

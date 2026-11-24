@@ -72,11 +72,6 @@ const WHEEL_COLORS = [
   { id: 'branca',  name: 'BRANCA',  hex: '#F8FAFC' }
 ];
 
-const STRIPE_STYLES = [
-  { id: 0, name: 'SEM FAIXA' },
-  { id: 1, name: 'FAIXA DUPLA' },
-  { id: 2, name: 'FAIXA CENTRAL' }
-];
 
 const REGIONAL_CUPS = [
   {
