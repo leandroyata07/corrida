@@ -79,9 +79,50 @@ const STRIPE_STYLES = [
 ];
 
 const REGIONAL_CUPS = [
-  { id: 'COPA_NE',  name: 'COPA NORDESTE',       codes: ['BA', 'PE', 'CE', 'AL', 'PB', 'RN', 'PI', 'MA', 'SE'] },
-  { id: 'COPA_SUL', name: 'COPA SUL',            codes: ['RS', 'SC', 'PR', 'SER'] },
-  { id: 'COPA_SE',  name: 'COPA SUDESTE',        codes: ['GP', 'RJ', 'MG', 'ES'] },
-  { id: 'COPA_NCO', name: 'COPA NORTE & C-OESTE', codes: ['AM', 'PA', 'AC', 'AP', 'RO', 'RR', 'DF', 'GO', 'MT', 'MS', 'TO'] }
+  {
+    id: 'COPA_NORTE',
+    name: 'COPA NORTE',
+    color: '#10B981',
+    codes: ['AC', 'AP', 'AM', 'PA', 'RO', 'RR', 'TO'],
+    winTitle: '👑 REI DA AMAZÔNIA! 👑',
+    winLine1: 'HISTÓRICO! VOCÊ DOMINOU AS 7 ETAPAS DA COPA NORTE!',
+    winLine2: 'DA FLORESTA AO CERRADO, NINGUÉM SEGUROU SEU RITMO!'
+  },
+  {
+    id: 'COPA_NE',
+    name: 'COPA NORDESTE',
+    color: '#F59E0B',
+    codes: ['AL', 'BA', 'CE', 'MA', 'PB', 'PE', 'PI', 'RN', 'SE'],
+    winTitle: '👑 REI DO NORDESTE! 👑',
+    winLine1: 'SENSACIONAL! VOCÊ CONQUISTOU AS 9 ETAPAS DA COPA NORDESTE!',
+    winLine2: 'VELOCIDADE MÁXIMA DO LITORAL AO SERTÃO NORDESTINO!'
+  },
+  {
+    id: 'COPA_CO',
+    name: 'COPA CENTRO-OESTE',
+    color: '#EAB308',
+    codes: ['DF', 'GO', 'MT', 'MS'],
+    winTitle: '👑 DONO DO PLANALTO! 👑',
+    winLine1: 'ESPETACULAR! VOCÊ VENCEU A COPA CENTRO-OESTE!',
+    winLine2: 'DE BRASÍLIA AO PANTANAL, VOCÊ FOI IMBATÍVEL NA PISTA!'
+  },
+  {
+    id: 'COPA_SE',
+    name: 'COPA SUDESTE',
+    color: '#38BDF8',
+    codes: ['ES', 'MG', 'RJ', 'SP'],
+    winTitle: '👑 SOBERANO DO SUDESTE! 👑',
+    winLine1: 'LENDÁRIO! VOCÊ VENCEU A COPA SUDESTE COM FINAL EM SP!',
+    winLine2: 'TRIUNFO NOS CIRCUITOS MAIS DISPUTADOS DO PAÍS!'
+  },
+  {
+    id: 'COPA_SUL',
+    name: 'COPA SUL',
+    color: '#A78BFA',
+    codes: ['PR', 'RS', 'SC'],
+    winTitle: '👑 CAMPEÃO DOS PAMPAS! 👑',
+    winLine1: 'BRILHANTE! VOCÊ CONQUISTOU OS 3 ESTADOS DA COPA SUL!',
+    winLine2: 'PRECISÃO CIRÚRGICA DO PARANÁ AO RIO GRANDE DO SUL!'
+  }
 ];
 

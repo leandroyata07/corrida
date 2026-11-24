@@ -801,10 +801,15 @@
         const cup = REGIONAL_CUPS.find(c => c.id === this.champSubMode);
         if (cup && cup.codes) {
           const indices = [];
+          let spIdx = -1;
           for (let i = 0; i < TRACK_DEFINITIONS.length; i++) {
             const st = TRACK_DEFINITIONS[i].stateCode;
-            if (cup.codes.includes(st)) indices.push(i);
+            if (cup.codes.includes(st)) {
+              if (st === 'SP') spIdx = i;
+              else indices.push(i);
+            }
           }
+          if (spIdx !== -1) indices.push(spIdx);
           if (indices.length > 0) return indices;
         }
       }
@@ -1931,7 +1936,7 @@
               click.x >= L.btnChampType.x && click.x <= L.btnChampType.x + L.btnChampType.w &&
               click.y >= L.btnChampType.y && click.y <= L.btnChampType.y + L.btnChampType.h) {
             this.selectedModeIndex = 0;
-            const champCycle = ['OFFICIAL', 'CUSTOM', 'COPA_NE', 'COPA_SUL', 'COPA_SE', 'COPA_NCO'];
+            const champCycle = ['OFFICIAL', 'CUSTOM', 'COPA_NORTE', 'COPA_NE', 'COPA_CO', 'COPA_SE', 'COPA_SUL'];
             const cIdx = (champCycle.indexOf(this.champSubMode || 'OFFICIAL') + 1) % champCycle.length;
             this.champSubMode = champCycle[cIdx];
             this.customChampionship = (this.champSubMode === 'CUSTOM');
@@ -1979,7 +1984,7 @@
         }
         if (this.input.justPressedUp || this.input.justPressedDown) {
           if (this.selectedModeIndex === 0) {
-            const champCycle = ['OFFICIAL', 'CUSTOM', 'COPA_NE', 'COPA_SUL', 'COPA_SE', 'COPA_NCO'];
+            const champCycle = ['OFFICIAL', 'CUSTOM', 'COPA_NORTE', 'COPA_NE', 'COPA_CO', 'COPA_SE', 'COPA_SUL'];
             const cIdx = (champCycle.indexOf(this.champSubMode || 'OFFICIAL') + 1) % champCycle.length;
             this.champSubMode = champCycle[cIdx];
             this.customChampionship = (this.champSubMode === 'CUSTOM');
@@ -3500,11 +3505,7 @@
         const curPitSeg = this.findSegment(this.player.z);
         const ps = (curPitSeg && curPitSeg.pitSide) ? curPitSeg.pitSide : 1;
         const pxSide = this.player.x * ps;
-        const pitOpenForPlayer = (
-          this.gameMode !== 'TIME_TRIAL' &&
-          !this.isQualifying &&
-          this.player.laps >= 1
-        );
+        const pitOpenForPlayer = (this.player.laps >= 1);
 
         // Entrada exclusiva pós-1ª volta e somente pela margem verde indicada no chão (pitEntry)
         if (
@@ -3541,7 +3542,10 @@
         if (inPitCorridor) {
           this.player.inPitLane = true;
           this.player.pitEntered = true;
-          this.player.speed = Math.min(this.player.speed, 150);
+          this.player.isNitro = false;
+          this.player.nitroTimer = 0;
+          this.player.nitroDecayTimer = 0;
+          this.player.speed = Math.min(this.player.speed, 180);
           this.player.pitTimer = (this.player.pitTimer || 0) + dt;
           this.pitProgress = Math.min(1, this.player.pitTimer / 0.85);
           const pitMaxX = curPitSeg.pitExit ? Math.max(1.04, 2.16 - 1.12 * (curPitSeg.pitExitT1 || 0)) : 2.16;
@@ -3637,7 +3641,7 @@
           return;
         }
       } else {
-        if (this.input.justPressedNitro && p.nitroCharges > 0 && p.nitroTimer <= 0 && this.state === 'RACING') {
+        if (this.input.justPressedNitro && p.nitroCharges > 0 && p.nitroTimer <= 0 && this.state === 'RACING' && !p.inPitLane && !p.pitEntered) {
           p.nitroCharges--;
           p.nitroTimer = 3.0 + (p.nitroDurationBonus || 0);
           p.nitroDecayTimer = 0;
@@ -3885,7 +3889,7 @@
       p.x = Math.max(Math.min(p.x, 2.25), -2.25);
 
       if (p.inPitLane) {
-        p.speed = Math.min(p.speed, 150);
+        p.speed = Math.min(p.speed, 180);
       }
 
       // Física diferenciada entre Zebra (Curb) e Grama (Off-road) — sem tremer a tela à toa!
@@ -4197,7 +4201,7 @@
         }
 
         // Inteligência de Uso dos 3 Nitros pelos Bots (mais estratégica e agressiva)
-        if (this.state === 'RACING' && this.raceTimer > 1.8 && bot.nitroCharges > 0 && bot.nitroTimer <= 0 && bot.nitroCooldown <= 0) {
+        if (this.state === 'RACING' && this.raceTimer > 1.8 && bot.nitroCharges > 0 && bot.nitroTimer <= 0 && bot.nitroCooldown <= 0 && !bot.inPitLane && !bot.pitEntered) {
           const isStraight = Math.abs(botSeg.curve) < 1.1;
           // Caso 1: Vácuo próximo querendo ultrapassar na reta (slingshot + nitro)
           const shouldDraftPass = leadCar && leadDist < 340 && isStraight && (bot.speed > 115);
@@ -4297,7 +4301,7 @@
 
         // Bot usando o Pit Lane por estratégia (a partir da volta 2, decide 1x por volta se compensa parar ou ganhar posição na pista)
         const botPs = (botSeg && botSeg.pitSide) ? botSeg.pitSide : 1;
-        const botCanPit = (!this.isQualifying && this.gameMode !== 'TIME_TRIAL' && bot.laps >= 1 && bot.pitUsedLap !== bot.laps);
+        const botCanPit = (bot.laps >= 1 && bot.pitUsedLap !== bot.laps);
         if (botCanPit && botSeg && botSeg.pitWall) {
           if (!bot.pitEntered && botSeg.pitEntry && bot.pitStrategyLap !== bot.laps) {
             bot.pitStrategyLap = bot.laps;
@@ -4316,9 +4320,12 @@
             if ((bot.x * botPs) >= 1.04) {
               bot.inPitLane = true;
               bot.pitEntered = true;
+              bot.isNitro = false;
+              bot.nitroTimer = 0;
+              bot.nitroDecayTimer = 0;
               bot.pitTimer = (bot.pitTimer || 0) + dt;
-              targetSpeed = Math.min(targetSpeed, 150);
-              bot.speed = Math.min(bot.speed, 150);
+              targetSpeed = Math.min(targetSpeed, 180);
+              bot.speed = Math.min(bot.speed, 180);
             }
             if (bot.pitEntered && !botSeg.pitExit && (bot.x * botPs) < 1.13) {
               bot.x = botPs * 1.13;

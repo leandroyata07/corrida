@@ -868,7 +868,7 @@
         }
         const pitSide = pitHintSeg ? (pitHintSeg.pitSide || 1) : 1;
         const lapBannerShowing = (this.lapBannerTimer > 0 && !this.finishingRace);
-        const pitUnlocked = !!(this.player && this.raceTimer > 6.5 && this.player.totalDistance > (START_LINE_Z + 1800) && !this.isQualifying && this.gameMode !== 'TIME_TRIAL');
+        const pitUnlocked = !!(this.player && this.raceTimer > 6.5 && this.player.totalDistance > (START_LINE_Z + 1800));
         if (this.player.inPitLane && this.pitProgress > 0) {
           const pw = 136;
           const ph = 16;
@@ -883,7 +883,7 @@
           ctx.fillRect(px + 2, py + ph - 4, Math.round((pw - 4) * Math.min(1, this.pitProgress)), 2.5);
           ctx.textAlign = 'center';
           ctx.font = 'bold 6.4px monospace';
-          ctx.fillText(`⛽ PIT LANE (150 KM/H): ${Math.round(this.pitProgress * 100)}%`, INTERNAL_WIDTH / 2, py + 8.5);
+          ctx.fillText(`⛽ PIT LANE (180 KM/H): ${Math.round(this.pitProgress * 100)}%`, INTERNAL_WIDTH / 2, py + 8.5);
         } else if (pitHintSeg && pitUnlocked && this.player.pitUsedLap !== this.player.laps) {
           const needNitro = this.player.nitroCharges < 3;
           const blinkPit = (Math.sin(performance.now() / 140) + 1) * 0.5;

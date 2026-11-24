@@ -451,7 +451,7 @@
           this.drawPoly(ctx, p1.x + p1.w * ps * (mid1 - 0.02), segBottomY, p1.x + p1.w * ps * (mid1 + 0.02), segBottomY, p2.x + p2.w * ps * (mid2 + 0.02), topY, p2.x + p2.w * ps * (mid2 - 0.02), topY, '#FACC15');
         }
         // Marcação luminosa de entrada (lista verde contínua no chão + faixas) / saída no Pit Lane
-        const pitClosedNow = !this.player || this.raceTimer <= 6.5 || this.player.totalDistance <= (START_LINE_Z + 1800) || this.gameMode === 'TIME_TRIAL' || this.isQualifying;
+        const pitClosedNow = !this.player || this.raceTimer <= 6.5 || this.player.totalDistance <= (START_LINE_Z + 1800);
         if (!pitClosedNow && segment.pitEntry) {
           // Lista verde contínua na borda da entrada para reconhecer imediatamente onde entrar
           this.drawPoly(ctx, p1.x + p1.w * ps * 1.02, segBottomY, p1.x + p1.w * ps * 1.24, segBottomY, p2.x + p2.w * ps * 1.24, topY, p2.x + p2.w * ps * 1.02, topY, '#00E676');

@@ -729,7 +729,7 @@
           title: cupInfo ? cupInfo.name : 'CAMPEONATO LH44 BR',
           icon: '🏆',
           badge: cupInfo ? 'COPA REGIONAL' : (this.customChampionship ? 'TORNEIO CUSTOM' : 'TEMPORADA COMPLETA'),
-          color: cupInfo ? '#F472B6' : (this.customChampionship ? '#38BDF8' : '#FFD700'),
+          color: cupInfo ? (cupInfo.color || '#F472B6') : (this.customChampionship ? '#38BDF8' : '#FFD700'),
           lines: cupInfo ? [
             `• ${cupInfo.codes.length} ETAPAS REGIONAIS`,
             '• PONTUAÇÃO F1 TOP 15',
@@ -2489,8 +2489,18 @@
       const list = (typeof this.getTrophies === 'function') ? this.getTrophies() : [];
       const boxW = INTERNAL_WIDTH - 24;
       const boxX = 12;
-      const boxY = 34;
-      const boxH = 148;
+      const boxY = 38;
+      const boxH = 144;
+      if (typeof REGIONAL_CUPS !== 'undefined') {
+        const wonRegions = REGIONAL_CUPS.filter(c => (list || []).some(t => t.rank === 1 && t.mode === c.name));
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 6.4px monospace';
+        ctx.fillStyle = wonRegions.length === REGIONAL_CUPS.length ? '#FFD700' : '#38BDF8';
+        const regLabel = wonRegions.length === REGIONAL_CUPS.length
+          ? '🏅 SELO MASTER: TODAS AS 5 REGIÕES CONQUISTADAS (5/5)!'
+          : `🗺️ CONQUISTA REGIONAL: ${wonRegions.length}/5 REGIÕES VENCIDAS`;
+        ctx.fillText(regLabel, INTERNAL_WIDTH / 2, 32);
+      }
       ctx.fillStyle = 'rgba(12, 18, 30, 0.94)';
       ctx.fillRect(boxX, boxY, boxW, boxH);
       ctx.strokeStyle = 'rgba(0, 229, 255, 0.45)';
@@ -3005,17 +3015,19 @@
 
       // Mensagem da Temporada do Jogador
       ctx.textAlign = 'center';
-      ctx.font = 'bold 8px monospace';
+      ctx.font = 'bold 7.6px monospace';
       const pPts = this.championshipPoints[0];
+      const cupEndObj = (typeof REGIONAL_CUPS !== 'undefined') ? REGIONAL_CUPS.find(c => c.id === this.champSubMode) : null;
+      const tourneyName = cupEndObj ? cupEndObj.name : (this.customChampionship ? 'TORNEIO CUSTOM' : 'FÓRMULA BRASIL LH44');
       if (pFinalRank === 1) {
-        ctx.fillStyle = '#00E676';
-        ctx.fillText(`🎉 HISTÓRICO! VOCÊ É O CAMPEÃO DA FÓRMULA BRASIL LH44 COM ${pPts} PTS! 🎉`, INTERNAL_WIDTH / 2, 168);
+        ctx.fillStyle = (cupEndObj && cupEndObj.color) ? cupEndObj.color : '#00E676';
+        ctx.fillText(`🎉 HISTÓRICO! VOCÊ É O CAMPEÃO DA ${tourneyName} COM ${pPts} PTS! 🎉`, INTERNAL_WIDTH / 2, 168);
       } else if (pFinalRank <= 3) {
         ctx.fillStyle = '#00E5FF';
-        ctx.fillText(`🍾 PARABÉNS! VOCÊ CONQUISTOU O PÓDIO FINAL EM ${pFinalRank}º LUGAR COM ${pPts} PTS! 🍾`, INTERNAL_WIDTH / 2, 168);
+        ctx.fillText(`🍾 PARABÉNS! PÓDIO NA ${tourneyName} EM ${pFinalRank}º LUGAR COM ${pPts} PTS! 🍾`, INTERNAL_WIDTH / 2, 168);
       } else {
         ctx.fillStyle = '#FFB74D';
-        ctx.fillText(`FIM DE TEMPORADA: VOCÊ TERMINOU EM ${pFinalRank}º LUGAR GERAL COM ${pPts} PONTOS.`, INTERNAL_WIDTH / 2, 168);
+        ctx.fillText(`FIM DA ${tourneyName}: VOCÊ TERMINOU EM ${pFinalRank}º LUGAR COM ${pPts} PONTOS.`, INTERNAL_WIDTH / 2, 168);
       }
 
       // Resumo dos demais pontuadores (4º ao 10º)
@@ -3740,21 +3752,27 @@
           );
         }
 
-        ctx.fillStyle = '#FFD700';
+        const cupCelObj = (typeof REGIONAL_CUPS !== 'undefined') ? REGIONAL_CUPS.find(c => c.id === this.champSubMode) : null;
+        const celTitle = cupCelObj ? cupCelObj.winTitle : (this.customChampionship ? '👑 CAMPEÃO DO TORNEIO CUSTOM! 👑' : '👑 O GRANDE CAMPEÃO DO LH44! 👑');
+        const celSubTag = cupCelObj ? `CAMPEÃO DA ${cupCelObj.name}` : (this.customChampionship ? 'CAMPEÃO CUSTOM' : 'CAMPEÃO DA TEMPORADA');
+        const celLine1 = cupCelObj ? cupCelObj.winLine1 : (this.customChampionship ? 'ESPETACULAR! VOCÊ VENCEU TODAS AS ETAPAS DO SEU TORNEIO!' : 'HISTÓRICO! VOCÊ CONQUISTOU A TEMPORADA COMPLETA DA FÓRMULA BRASIL!');
+        const celLine2 = cupCelObj ? cupCelObj.winLine2 : 'SEU NOME ESTÁ ETERNIZADO COMO UMA LENDA DO AUTOMOBILISMO ARCADE!';
+
+        ctx.fillStyle = (cupCelObj && cupCelObj.color) ? cupCelObj.color : '#FFD700';
         ctx.font = touchSafe ? 'bold 11px monospace' : 'bold 13px monospace';
-        ctx.fillText('👑 O GRANDE CAMPEÃO DO LH44! 👑', INTERNAL_WIDTH / 2, 20);
+        ctx.fillText(celTitle, INTERNAL_WIDTH / 2, 20);
 
         ctx.fillStyle = '#00E5FF';
         ctx.font = 'bold 7.5px monospace';
         const pPts = this.championshipPoints[0] || 0;
-        ctx.fillText(`PILOTO: VOCÊ [${this.player?.driverCode || 'LEA'}]  |  TOTAL: ${pPts} PONTOS  |  CAMPEÃO DA TEMPORADA`, INTERNAL_WIDTH / 2, 32);
+        ctx.fillText(`PILOTO: VOCÊ [${this.player?.driverCode || 'LEA'}]  |  TOTAL: ${pPts} PONTOS  |  ${celSubTag}`, INTERNAL_WIDTH / 2, 32);
 
         ctx.fillStyle = '#FFE082';
-        ctx.font = 'bold 7.2px monospace';
-        ctx.fillText('HISTÓRICO! VOCÊ CONQUISTOU A TEMPORADA COMPLETA DA FÓRMULA BRASIL!', INTERNAL_WIDTH / 2, 122);
+        ctx.font = 'bold 7.0px monospace';
+        ctx.fillText(celLine1, INTERNAL_WIDTH / 2, 122);
         ctx.fillStyle = '#69F0AE';
-        ctx.font = '6.8px monospace';
-        ctx.fillText('SEU NOME ESTÁ ETERNIZADO COMO UMA LENDA DO AUTOMOBILISMO ARCADE!', INTERNAL_WIDTH / 2, 134);
+        ctx.font = '6.6px monospace';
+        ctx.fillText(celLine2, INTERNAL_WIDTH / 2, 134);
         ctx.restore();
 
       } else if (rank <= 3) {
