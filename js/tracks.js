@@ -9,13 +9,15 @@ const ENV_CONDITIONS = [
   { id: 'NOITE',       label: 'NOITE',       icon: '🌙' },
   { id: 'DINAMICO',    label: 'DINÂMICO',    icon: '🔄' },
   { id: 'CHUVA',       label: 'CHUVA DIA',   icon: '🌧' },
+  { id: 'CHUVA_TARDE', label: 'CHUVA TARDE', icon: '🌦' },
   { id: 'CHUVA_NOITE', label: 'CHUVA NOITE', icon: '⛈' },
   { id: 'NEVE',        label: 'NEVE DIA',    icon: '❄' },
+  { id: 'NEVE_TARDE',  label: 'NEVE TARDE',  icon: '🌨' },
   { id: 'NEVE_NOITE',  label: 'NEVE NOITE',  icon: '🌨' }
 ];
-const DYN_ORDER = ['DIA', 'TARDE', 'NOITE', 'CHUVA', 'CHUVA_NOITE', 'NEVE', 'NEVE_NOITE'];
-const DYN_HOLD = 18;   // segundos estáveis em cada condição
-const DYN_BLEND = 16;  // segundos de transição ultra-suave entre horários/climas
+const DYN_ORDER = ['DIA', 'TARDE', 'NOITE', 'CHUVA', 'CHUVA_TARDE', 'CHUVA_NOITE', 'NEVE', 'NEVE_TARDE', 'NEVE_NOITE'];
+const DYN_HOLD = 14;   // segundos estáveis em cada condição
+const DYN_BLEND = 24;  // segundos de transição ultra-suave entre horários/climas
 
 const ENV_COLOR_KEYS = [
   'skyTop', 'skyMid', 'skyBottom', 'mountainColor', 'mountainFront',
@@ -223,7 +225,8 @@ class TrackBuilder {
 
         // 1. Elementos da Reta de Largada / Boxes (Seção 0)
         if (sec.timingTower && (i === 24 || i === 64)) {
-          sceneries.push({ type: 'timing_tower', offset: -1.35 * pitSide });
+          const towerOffset = (trackDef && trackDef.id === 'teste') ? (3.45 * pitSide) : (-1.35 * pitSide);
+          sceneries.push({ type: 'timing_tower', offset: towerOffset });
         }
 
         // 2. Monumentos Principais e Secundários da Seção
@@ -292,6 +295,25 @@ class TrackBuilder {
         }
 
         const hasPitWall = !!(idx >= 18 && idx < 90 && !isTunnel && !isBridge);
+        let grandstandSide = 0;
+        let grandstandStart = false;
+        let grandstandEnd = false;
+        if (trackDef && trackDef.id === 'teste' && !isTunnel && !isBridge) {
+          // +1 arquibancada na esquerda (curva 3) e +2 na direita (curva 1 e reta oposta)
+          if (idx >= 225 && idx <= 295) {
+            grandstandSide = 1;
+            grandstandStart = (idx === 225);
+            grandstandEnd = (idx === 295);
+          } else if (idx >= 465 && idx <= 545) {
+            grandstandSide = -1;
+            grandstandStart = (idx === 465);
+            grandstandEnd = (idx === 545);
+          } else if (idx >= 605 && idx <= 685) {
+            grandstandSide = 1;
+            grandstandStart = (idx === 605);
+            grandstandEnd = (idx === 685);
+          }
+        }
         const pitEntry = !!(hasPitWall && idx >= START_LINE_SEG && idx < START_LINE_SEG + 20);
         const pitExitStart = 74;
         const pitExit = !!(hasPitWall && idx >= pitExitStart);
@@ -300,11 +322,20 @@ class TrackBuilder {
         const pitExitT2 = pitExit ? Math.max(0, Math.min(1, (idx + 1 - pitExitStart) / pitExitLen)) : 0;
         const pitBarrier = !!(hasPitWall && !pitEntry && !pitExit);
 
-        // No trecho do Pit Lane (e margem de ±4 segs), todo item de paisagem do lado dos boxes fica bem na grama externa
+        // No trecho do Pit Lane (e margem de ±4 segs) ou das arquibancadas da pista TESTE, afasta props para fora
         if (idx >= 14 && idx < 94 && sceneries.length > 0) {
           for (let si = 0; si < sceneries.length; si++) {
             if (sceneries[si].offset * pitSide > 0) {
               sceneries[si].offset = pitSide * Math.max(2.75, Math.abs(sceneries[si].offset) + 0.95);
+            } else if (trackDef && trackDef.id === 'teste' && sceneries[si].offset * pitSide < 0) {
+              sceneries[si].offset = -pitSide * Math.max(2.75, Math.abs(sceneries[si].offset) + 1.0);
+            }
+          }
+        }
+        if (grandstandSide !== 0 && sceneries.length > 0) {
+          for (let si = 0; si < sceneries.length; si++) {
+            if (sceneries[si].offset * grandstandSide > 0) {
+              sceneries[si].offset = grandstandSide * Math.max(2.85, Math.abs(sceneries[si].offset) + 1.1);
             }
           }
         }
@@ -322,6 +353,9 @@ class TrackBuilder {
           guardrailRight: (hasPitWall && pitSide === 1) ? false : guardRight,
           pitWall: hasPitWall,
           pitSide: pitSide,
+          grandstandSide: grandstandSide,
+          grandstandStart: grandstandStart,
+          grandstandEnd: grandstandEnd,
           pitEntry: pitEntry,
           pitExit: pitExit,
           pitExitT1: pitExitT1,
@@ -521,6 +555,7 @@ class TrackBuilder {
         const seg = segments[i];
         seg.curve = -seg.curve;
         if (seg.pitSide) seg.pitSide = -seg.pitSide;
+        if (seg.grandstandSide) seg.grandstandSide = -seg.grandstandSide;
         const tmpGuard = seg.guardrailLeft;
         seg.guardrailLeft = seg.guardrailRight;
         seg.guardrailRight = tmpGuard;

@@ -30,7 +30,8 @@
         } else {
           const B = getEnvTarget(track, condB);
           const k = (within - DYN_HOLD) / DYN_BLEND;
-          target = lerpEnv(A, B, k * k * (3 - 2 * k));
+          const smoothK = k * k * k * (k * (k * 6 - 15) + 10);
+          target = lerpEnv(A, B, smoothK);
         }
         key = 'DINAMICO|' + track.id;
       } else if (isRacing) {
@@ -137,6 +138,12 @@
         return;
       }
 
+      if (def && def.id === 'teste') {
+        this.renderSkyBase(ctx, def, horizonY, E, S, curveShift);
+        this.renderSkyTeste(ctx, def, scroll, curveShift, horizonY, E, S);
+        return;
+      }
+
       if (typeof MonumentArt !== 'undefined' && MonumentArt.renderSkyLandmark) {
         this.renderSkyBase(ctx, def, horizonY, E, S, curveShift);
         MonumentArt.renderSkyLandmark(ctx, def, scroll, curveShift, horizonY, E, S);
@@ -146,6 +153,347 @@
         this.renderSkyNoite(ctx, def, scroll, curveShift, horizonY, E, S);
       } else {
         this.renderSkyBrasil(ctx, def, scroll, curveShift, horizonY, E, S);
+      }
+    }
+
+    renderSkyTeste(ctx, def, scroll, curveShift, horizonY, E, S) {
+      const css = E.css;
+      const nowSec = performance.now() * 0.002;
+      const nightK = S.night || 0;
+      const duskK = S.dusk || 0;
+      const isNight = nightK > 0.28;
+      const isDusk = duskK > 0.22;
+
+      const seaH = 11;
+      const seaTop = horizonY - seaH;
+
+      // 1. Montanhas distantes em 2 camadas suaves
+      const mtnShift = scroll * 0.14 + curveShift * 0.22;
+      ctx.fillStyle = css.mountainColor || '#1A5930';
+      ctx.beginPath();
+      ctx.moveTo(-20, seaTop);
+      for (let x = -20; x <= INTERNAL_WIDTH + 40; x += 28) {
+        const wx = x + mtnShift;
+        const h = 10 + Math.abs(Math.sin(wx * 0.012)) * 11 + Math.abs(Math.cos(wx * 0.027)) * 6;
+        ctx.lineTo(x, seaTop - h);
+      }
+      ctx.lineTo(INTERNAL_WIDTH + 40, seaTop);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = css.mountainFront || '#257B40';
+      ctx.beginPath();
+      ctx.moveTo(-20, seaTop);
+      for (let x = -20; x <= INTERNAL_WIDTH + 40; x += 24) {
+        const wx = x + mtnShift * 1.18 + 90;
+        const h = 5 + Math.abs(Math.sin(wx * 0.018)) * 7 + Math.abs(Math.cos(wx * 0.035)) * 4;
+        ctx.lineTo(x, seaTop - h);
+      }
+      ctx.lineTo(INTERNAL_WIDTH + 40, seaTop);
+      ctx.closePath();
+      ctx.fill();
+
+      // 2. Skyline distante de prédios na frente das montanhas (com arquitetura variada, torres e janelas reativas)
+      const citySpan = 720;
+      const cityShift = ((scroll * 0.22 + curveShift * 0.34) % citySpan + citySpan) % citySpan;
+      const buildings = [
+        { x: 16,  w: 10, h: 16, style: 'grid' },
+        { x: 28,  w: 13, h: 24, style: 'step', tower: true },
+        { x: 44,  w: 9,  h: 14, style: 'band' },
+        { x: 56,  w: 12, h: 20, style: 'grid' },
+        { x: 70,  w: 15, h: 28, style: 'step', spire: true },
+        { x: 88,  w: 10, h: 16, style: 'band' },
+        { x: 100, w: 12, h: 22, style: 'slant', tower: true },
+        { x: 114, w: 8,  h: 13, style: 'grid' },
+        { x: 242, w: 11, h: 17, style: 'band' },
+        { x: 256, w: 14, h: 26, style: 'step', spire: true },
+        { x: 273, w: 10, h: 15, style: 'grid' },
+        { x: 286, w: 13, h: 21, style: 'band', tower: true },
+        { x: 302, w: 10, h: 16, style: 'slant' },
+        { x: 315, w: 8,  h: 12, style: 'grid' },
+        { x: 430, w: 11, h: 18, style: 'band' },
+        { x: 444, w: 15, h: 27, style: 'step', spire: true },
+        { x: 462, w: 10, h: 15, style: 'grid' },
+        { x: 475, w: 12, h: 22, style: 'slant', tower: true },
+        { x: 490, w: 9,  h: 13, style: 'band' },
+        { x: 585, w: 11, h: 19, style: 'grid' },
+        { x: 599, w: 14, h: 25, style: 'step', spire: true },
+        { x: 616, w: 9,  h: 14, style: 'band' },
+        { x: 628, w: 12, h: 18, style: 'grid', tower: true },
+        { x: 643, w: 8,  h: 12, style: 'slant' }
+      ];
+
+      for (let rep = -1; rep <= 1; rep++) {
+        for (let b = 0; b < buildings.length; b++) {
+          const bld = buildings[b];
+          const bx = bld.x + rep * citySpan - cityShift;
+          if (bx + bld.w < -14 || bx > INTERNAL_WIDTH + 14) continue;
+          const by = seaTop - bld.h;
+
+          const bodyMain = isNight ? ((b % 2 === 0) ? '#0F172A' : '#1E293B') : (isDusk ? '#1E293B' : ((b % 2 === 0) ? '#334155' : '#475569'));
+          const bodySide = isNight ? '#090E1A' : (isDusk ? '#0F172A' : '#273549');
+          const trimCol = isNight ? '#334155' : (isDusk ? '#64748B' : '#94A3B8');
+
+          // Corpo principal + face lateral sombreada para profundidade 3D
+          ctx.fillStyle = bodyMain;
+          ctx.fillRect(bx, by, bld.w, bld.h);
+          ctx.fillStyle = bodySide;
+          ctx.fillRect(bx + bld.w - Math.max(2, bld.w * 0.24), by, Math.max(2, bld.w * 0.24), bld.h);
+          ctx.fillStyle = trimCol;
+          ctx.fillRect(bx, by, bld.w, 1);
+
+          // Detalhe arquitetônico do topo (escalonado ou inclinado)
+          let topAnchorY = by;
+          if (bld.style === 'step') {
+            const cw = Math.max(4, Math.floor(bld.w * 0.56));
+            const ch = 4;
+            const cx = bx + Math.floor((bld.w - cw) * 0.5);
+            ctx.fillStyle = bodyMain;
+            ctx.fillRect(cx, by - ch, cw, ch);
+            ctx.fillStyle = trimCol;
+            ctx.fillRect(cx, by - ch, cw, 1);
+            topAnchorY = by - ch;
+          } else if (bld.style === 'slant') {
+            ctx.fillStyle = bodyMain;
+            ctx.beginPath();
+            ctx.moveTo(bx, by);
+            ctx.lineTo(bx + bld.w, by - 3.5);
+            ctx.lineTo(bx + bld.w, by);
+            ctx.closePath();
+            ctx.fill();
+            topAnchorY = by - 2.5;
+          }
+
+          // Antena / torre de transmissão com luz vermelha piscando
+          if (bld.spire || bld.tower) {
+            const tx = bx + bld.w * 0.5;
+            const th = bld.spire ? 7 : 5;
+            ctx.fillStyle = isNight ? '#475569' : '#94A3B8';
+            ctx.fillRect(tx - 0.5, topAnchorY - th, 1, th);
+            if (bld.tower) {
+              ctx.fillRect(tx - 2, topAnchorY - th * 0.55, 4, 0.8);
+            }
+            const blink = Math.sin(nowSec * 2.6 + b * 1.7) > 0;
+            ctx.fillStyle = (isNight || isDusk)
+              ? (blink ? '#EF4444' : '#7F1D1D')
+              : (blink ? '#DC2626' : '#991B1B');
+            ctx.fillRect(tx - 0.9, topAnchorY - th - 1.4, 1.8, 1.6);
+          }
+
+          // Janelas em faixas de escritório ou grade residencial reativas ao horário do dia
+          if (bld.style === 'band') {
+            const rows = Math.max(2, Math.floor((bld.h - 4) / 3.2));
+            for (let r = 0; r < rows; r++) {
+              const seed = (b * 11 + r * 7) % 9;
+              if (isNight) {
+                if (seed < 3) continue;
+                ctx.fillStyle = (seed % 2 === 0) ? '#38BDF8' : '#FEF08A';
+              } else if (isDusk) {
+                ctx.fillStyle = (seed < 4) ? '#334155' : '#FBBF24';
+              } else {
+                ctx.fillStyle = '#93C5FD';
+              }
+              ctx.fillRect(bx + 1.5, by + 2.5 + r * 3.2, Math.max(3, bld.w - 4.5), 1.3);
+            }
+          } else {
+            const cols = Math.max(2, Math.floor((bld.w - 3) / 3));
+            const rows = Math.max(2, Math.floor((bld.h - 4) / 3));
+            for (let r = 0; r < rows; r++) {
+              for (let c = 0; c < cols; c++) {
+                const seed = (b * 13 + r * 7 + c * 5) % 11;
+                if (isNight) {
+                  if (seed < 4) continue;
+                  ctx.fillStyle = (seed % 3 === 0) ? '#38BDF8' : ((seed % 2 === 0) ? '#FDE047' : '#FEF08A');
+                } else if (isDusk) {
+                  ctx.fillStyle = (seed < 5) ? '#334155' : ((seed % 2 === 0) ? '#FBBF24' : '#FDE047');
+                } else {
+                  ctx.fillStyle = (seed % 2 === 0) ? '#93C5FD' : '#BAE6FD';
+                }
+                ctx.fillRect(bx + 1.8 + c * 3, by + 2.2 + r * 3, 1.5, 1.6);
+              }
+            }
+          }
+        }
+      }
+
+      // 3. Mar distante com água em movimento e reflexo de sol/lua
+      const seaGrad = ctx.createLinearGradient(0, seaTop, 0, horizonY);
+      if (isNight) {
+        seaGrad.addColorStop(0, '#082F49');
+        seaGrad.addColorStop(1, '#0C4A6E');
+      } else if (isDusk) {
+        seaGrad.addColorStop(0, '#1E3A8A');
+        seaGrad.addColorStop(1, '#0369A1');
+      } else {
+        seaGrad.addColorStop(0, '#0284C7');
+        seaGrad.addColorStop(1, '#0EA5E9');
+      }
+      ctx.fillStyle = seaGrad;
+      ctx.fillRect(-10, seaTop, INTERNAL_WIDTH + 20, seaH);
+
+      // Reflexo do sol/lua na água
+      const celX = (isNight ? INTERNAL_WIDTH * 0.78 - curveShift * 0.3 : INTERNAL_WIDTH * 0.72 - curveShift * 0.35);
+      if (isNight || isDusk || S.sun > 0.1) {
+        ctx.fillStyle = isNight ? 'rgba(226, 232, 240, 0.24)' : (isDusk ? 'rgba(251, 146, 60, 0.34)' : 'rgba(254, 240, 138, 0.26)');
+        for (let wy = 1; wy < seaH - 1; wy += 2) {
+          const wob = Math.sin(nowSec * 2.4 + wy * 1.3) * 3;
+          const rw = 6 + wy * 1.4;
+          ctx.fillRect(celX - rw * 0.5 + wob, seaTop + wy, rw, 1);
+        }
+      }
+
+      // Ondas suaves em movimento contínuo
+      ctx.fillStyle = isNight ? 'rgba(125, 211, 252, 0.18)' : 'rgba(224, 242, 254, 0.36)';
+      for (let w = 0; w < 18; w++) {
+        const waveY = seaTop + 2 + (w % 4) * 2.2;
+        const rawX = ((w * 43 + nowSec * (10 + (w % 3) * 4) - scroll * 0.24) % (INTERNAL_WIDTH + 40));
+        const wx = rawX < -20 ? rawX + INTERNAL_WIDTH + 40 : rawX;
+        const ww = 7 + (w % 3) * 4;
+        ctx.fillRect(wx, waveY, ww, 0.9);
+      }
+
+      // 4. Ponte distante estaiada conectando as duas margens/penínsulas costeiras
+      const brSpan = 720;
+      const brShift = ((scroll * 0.22 + curveShift * 0.34) % brSpan + brSpan) % brSpan;
+      const brStart = 122 - brShift;
+      const brPositions = [brStart, brStart + brSpan, brStart - brSpan];
+      for (let bp = 0; bp < brPositions.length; bp++) {
+        const bx = brPositions[bp];
+        const bw = 120;
+        if (bx + bw + 34 < -10 || bx - 34 > INTERNAL_WIDTH + 10) continue;
+
+        const deckY = seaTop + 3;
+        const p1X = bx + bw * 0.30;
+        const p2X = bx + bw * 0.70;
+        const pylonTopY = seaTop - 13;
+
+        // Margens/aterros costeiros ancorando a ponte nos dois lados
+        const landCol = isNight ? '#0F172A' : (isDusk ? '#1E293B' : '#1E5631');
+        const wallCol = isNight ? '#334155' : '#64748B';
+        // Margem esquerda
+        ctx.fillStyle = landCol;
+        ctx.beginPath();
+        ctx.moveTo(bx - 32, horizonY);
+        ctx.lineTo(bx - 26, seaTop - 2);
+        ctx.lineTo(bx + 8, seaTop + 2);
+        ctx.lineTo(bx + 12, horizonY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = wallCol;
+        ctx.fillRect(bx + 4, deckY, 6, horizonY - deckY - 1);
+
+        // Margem direita
+        ctx.fillStyle = landCol;
+        ctx.beginPath();
+        ctx.moveTo(bx + bw - 12, horizonY);
+        ctx.lineTo(bx + bw - 8, seaTop + 2);
+        ctx.lineTo(bx + bw + 28, seaTop - 2);
+        ctx.lineTo(bx + bw + 34, horizonY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = wallCol;
+        ctx.fillRect(bx + bw - 10, deckY, 6, horizonY - deckY - 1);
+
+        // Cabos de aço da ponte
+        ctx.strokeStyle = isNight ? 'rgba(148, 163, 184, 0.55)' : 'rgba(226, 232, 240, 0.75)';
+        ctx.lineWidth = 0.7;
+        ctx.beginPath();
+        for (const px of [p1X, p2X]) {
+          ctx.moveTo(px, pylonTopY + 1); ctx.lineTo(px - 22, deckY);
+          ctx.moveTo(px, pylonTopY + 1); ctx.lineTo(px - 12, deckY);
+          ctx.moveTo(px, pylonTopY + 1); ctx.lineTo(px + 12, deckY);
+          ctx.moveTo(px, pylonTopY + 1); ctx.lineTo(px + 22, deckY);
+        }
+        ctx.stroke();
+
+        // Pilares principais e de apoio na água
+        ctx.fillStyle = isNight ? '#334155' : '#64748B';
+        ctx.fillRect(p1X - 1.5, pylonTopY, 3, horizonY - pylonTopY - 1);
+        ctx.fillRect(p2X - 1.5, pylonTopY, 3, horizonY - pylonTopY - 1);
+        ctx.fillRect(bx + 18, deckY + 1, 2, horizonY - deckY - 2);
+        ctx.fillRect(bx + bw - 20, deckY + 1, 2, horizonY - deckY - 2);
+
+        // Tabuleiro contínuo da ponte ligando os dois aterros
+        ctx.fillStyle = isNight ? '#1E293B' : '#CBD5E1';
+        ctx.fillRect(bx - 16, deckY, bw + 32, 2);
+
+        // Luzes na ponte à noite / entardecer
+        if (isNight || isDusk) {
+          ctx.fillStyle = '#FDE047';
+          for (let lx = bx - 10; lx < bx + bw + 12; lx += 8) {
+            ctx.fillRect(lx, deckY - 1, 1.2, 1.2);
+          }
+          ctx.fillStyle = '#EF4444';
+          ctx.fillRect(p1X - 0.8, pylonTopY - 1.5, 1.6, 1.4);
+          ctx.fillRect(p2X - 0.8, pylonTopY - 1.5, 1.6, 1.4);
+        }
+      }
+
+      // Orla/mureta costeira fina na linha do horizonte
+      ctx.fillStyle = isNight ? '#1E293B' : '#D6C08D';
+      ctx.fillRect(-10, horizonY - 1.5, INTERNAL_WIDTH + 20, 1.5);
+
+      // 5. Avião distante cruzando o céu no horizonte de um lado para o outro
+      const planeCycle = 28; // segundos por travessia (ida e volta)
+      const planeT = (nowSec * 0.5) % planeCycle;
+      const dir = (planeT < planeCycle * 0.5) ? 1 : -1;
+      const legProgress = (dir === 1) ? (planeT / (planeCycle * 0.5)) : ((planeT - planeCycle * 0.5) / (planeCycle * 0.5));
+      const px = (dir === 1)
+        ? (-30 + legProgress * (INTERNAL_WIDTH + 60))
+        : (INTERNAL_WIDTH + 30 - legProgress * (INTERNAL_WIDTH + 60));
+      const py = horizonY - (dir === 1 ? 48 : 54) - Math.sin(nowSec * 0.9) * 1.2;
+
+      // Rastro sutil (contrail) atrás do avião
+      if (!isNight) {
+        const trailGrad = ctx.createLinearGradient(px, py, px - dir * 32, py);
+        trailGrad.addColorStop(0, isDusk ? 'rgba(254, 215, 170, 0.28)' : 'rgba(255, 255, 255, 0.30)');
+        trailGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.strokeStyle = trailGrad;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(px - dir * 3, py);
+        ctx.lineTo(px - dir * 32, py);
+        ctx.stroke();
+      }
+
+      // Fuselagem aerodinâmica (bico afilado e arredondado, sem ponta quadrada)
+      ctx.fillStyle = isNight ? '#475569' : (isDusk ? '#CBD5E1' : '#F8FAFC');
+      ctx.beginPath();
+      ctx.moveTo(px - dir * 4.5, py - 0.45);
+      ctx.lineTo(px + dir * 2.6, py - 0.75);
+      ctx.quadraticCurveTo(px + dir * 5.2, py - 0.1, px + dir * 5.4, py + 0.1);
+      ctx.quadraticCurveTo(px + dir * 4.6, py + 0.72, px + dir * 2.4, py + 0.72);
+      ctx.lineTo(px - dir * 4.5, py + 0.48);
+      ctx.closePath();
+      ctx.fill();
+      // Cauda vertical
+      ctx.beginPath();
+      ctx.moveTo(px - dir * 3.5, py - 0.45);
+      ctx.lineTo(px - dir * 5.0, py - 2.6);
+      ctx.lineTo(px - dir * 2.2, py - 0.55);
+      ctx.closePath();
+      ctx.fill();
+      // Asas
+      ctx.fillStyle = isNight ? '#334155' : '#94A3B8';
+      ctx.beginPath();
+      ctx.moveTo(px + dir * 1.0, py);
+      ctx.lineTo(px - dir * 2.2, py - 2.4);
+      ctx.lineTo(px - dir * 0.5, py);
+      ctx.lineTo(px - dir * 2.0, py + 2.2);
+      ctx.closePath();
+      ctx.fill();
+
+      // Luzes de navegação / estrobo circulares sutis
+      const strobe = Math.sin(nowSec * 6.0) > 0.45;
+      ctx.fillStyle = strobe ? '#FFFFFF' : '#EF4444';
+      ctx.beginPath();
+      ctx.arc(px - dir * 0.5, py - 0.35, 0.55, 0, Math.PI * 2);
+      ctx.fill();
+      if (isNight || isDusk) {
+        ctx.fillStyle = '#38BDF8';
+        ctx.beginPath();
+        ctx.arc(px + dir * 3.6, py - 0.1, 0.45, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
 

@@ -297,6 +297,9 @@
       this.seasonRivalIndex = -1;
       this.rivalBeaten = false;
       this.overtakesCount = 0;
+      this.maxSpeedReached = 0;
+      this.pitStopsCount = 0;
+      this.slipstreamTime = 0;
       this.prevPlayerRank = 20;
       this.lastObjectiveBonus = 0;
       this.lastRivalBonus = 0;
@@ -821,7 +824,7 @@
       const spIndex = TRACK_DEFINITIONS.findIndex(t => t.id === 'sao_paulo' || t.stateCode === 'SP');
       const schedule = [];
       for (let i = 0; i < TRACK_DEFINITIONS.length; i++) {
-        if (i !== spIndex) schedule.push(i);
+        if (i !== spIndex && !TRACK_DEFINITIONS[i].isTestTrack) schedule.push(i);
       }
       if (spIndex !== -1) {
         schedule.push(spIndex);
@@ -830,7 +833,7 @@
     }
 
     getChampionshipPrizeMultiplier() {
-      const total = TRACK_DEFINITIONS.length;
+      const total = TRACK_DEFINITIONS.filter(t => t && !t.isTestTrack).length;
       const stages = (this.seasonSchedule && this.seasonSchedule.length > 0) ? this.seasonSchedule.length : total;
       if (stages >= total) return 1;
       return Math.min(3, Math.max(1, +(Math.sqrt(total / stages)).toFixed(2)));
@@ -974,6 +977,7 @@
       this.player.steerAngle = 0;
       this.player.inSlipstream = false;
       this.player.slipstreamIntensity = 0;
+      this.blueFlagActive = false;
       this.player.slipstreamDecayTimer = 0;
       this.player.slipstreamStoredIntensity = 0;
       this.player.slipstreamPeakSpeed = 0;
@@ -1020,6 +1024,9 @@
       this.seasonRivalIndex = -1;
       this.rivalBeaten = false;
       this.overtakesCount = 0;
+      this.maxSpeedReached = 0;
+      this.pitStopsCount = 0;
+      this.slipstreamTime = 0;
       this.prevPlayerRank = TOTAL_RACERS;
       this.lastObjectiveBonus = 0;
       this.lastRivalBonus = 0;
@@ -1051,6 +1058,30 @@
       }
     }
 
+    _getEnvParts(envId) {
+      if (envId === 'DINAMICO') return { time: 'DINAMICO', weather: 'LIMPO' };
+      if (envId === 'CHUVA') return { time: 'DIA', weather: 'CHUVA' };
+      if (envId === 'CHUVA_TARDE') return { time: 'TARDE', weather: 'CHUVA' };
+      if (envId === 'CHUVA_NOITE') return { time: 'NOITE', weather: 'CHUVA' };
+      if (envId === 'NEVE') return { time: 'DIA', weather: 'NEVE' };
+      if (envId === 'NEVE_TARDE') return { time: 'TARDE', weather: 'NEVE' };
+      if (envId === 'NEVE_NOITE') return { time: 'NOITE', weather: 'NEVE' };
+      if (envId === 'TARDE') return { time: 'TARDE', weather: 'LIMPO' };
+      if (envId === 'NOITE') return { time: 'NOITE', weather: 'LIMPO' };
+      return { time: 'DIA', weather: 'LIMPO' };
+    }
+
+    _buildEnvId(timePart, weatherPart) {
+      if (timePart === 'DINAMICO') return 'DINAMICO';
+      if (weatherPart === 'CHUVA') {
+        return timePart === 'NOITE' ? 'CHUVA_NOITE' : (timePart === 'TARDE' ? 'CHUVA_TARDE' : 'CHUVA');
+      }
+      if (weatherPart === 'NEVE') {
+        return timePart === 'NOITE' ? 'NEVE_NOITE' : (timePart === 'TARDE' ? 'NEVE_TARDE' : 'NEVE');
+      }
+      return timePart || 'DIA';
+    }
+
     setEnvCond(cond) {
       this.envCond = cond;
       this.chosenEnvCond = cond;
@@ -1070,11 +1101,18 @@
       const startIdx = Math.floor(Math.random() * 3);
       this.dynamicPhases = [];
       // Ciclo cronológico natural: DIA -> TARDE -> NOITE -> DIA...
-      // Condição meteorológica (limpo, chuva, neve) independente e aleatória a cada fase
+      // Condição meteorológica suave (evita saltar direto de chuva para neve)
+      let prevPrecip = 'LIMPO';
       for (let i = 0; i < 24; i++) {
         const hour = CHRONO[(startIdx + i) % 3];
         const r = Math.random();
-        const precip = r < 0.45 ? 'LIMPO' : (r < 0.75 ? 'CHUVA' : 'NEVE');
+        let precip = prevPrecip;
+        if (prevPrecip === 'LIMPO') {
+          precip = r < 0.50 ? 'LIMPO' : (r < 0.80 ? 'CHUVA' : 'NEVE');
+        } else {
+          precip = r < 0.55 ? prevPrecip : 'LIMPO';
+        }
+        prevPrecip = precip;
         let preset = hour;
         if (precip === 'CHUVA') {
           preset = (hour === 'DIA') ? 'CHUVA' : (hour === 'TARDE' ? 'CHUVA_TARDE' : 'CHUVA_NOITE');
@@ -2129,6 +2167,14 @@
             return;
           }
 
+          // Clique no botão NORMAL / ESPELHO
+          if (L.btnMirror && click.x >= L.btnMirror.x && click.x <= L.btnMirror.x + L.btnMirror.w &&
+              click.y >= L.btnMirror.y && click.y <= L.btnMirror.y + L.btnMirror.h) {
+            this.mirrorTrack = !this.mirrorTrack;
+            this.loadTrack(this.trackIndex);
+            this.audio.playBeep(500, 0.07);
+          }
+
           // Clique no botão CONFIRMAR
           if (L.btnConfirm && click.x >= L.btnConfirm.x && click.x <= L.btnConfirm.x + L.btnConfirm.w &&
               click.y >= L.btnConfirm.y && click.y <= L.btnConfirm.y + L.btnConfirm.h) {
@@ -2267,7 +2313,7 @@
 
           if (L.btnRandom && click.x >= L.btnRandom.x && click.x <= L.btnRandom.x + L.btnRandom.w &&
               click.y >= L.btnRandom.y && click.y <= L.btnRandom.y + L.btnRandom.h) {
-            const pool = Array.from({ length: TRACK_DEFINITIONS.length }, (_, i) => i);
+            const pool = TRACK_DEFINITIONS.map((t, i) => (t && !t.isTestTrack) ? i : -1).filter(i => i !== -1);
             for (let i = pool.length - 1; i > 0; i--) {
               const j = Math.floor(Math.random() * (i + 1));
               [pool[i], pool[j]] = [pool[j], pool[i]];
@@ -2479,6 +2525,14 @@
             return;
           }
 
+          // Clique no botão NORMAL / ESPELHO
+          if (L.btnMirror && click.x >= L.btnMirror.x && click.x <= L.btnMirror.x + L.btnMirror.w &&
+              click.y >= L.btnMirror.y && click.y <= L.btnMirror.y + L.btnMirror.h) {
+            this.mirrorTrack = !this.mirrorTrack;
+            this.loadTrack(this.trackIndex);
+            this.audio.playBeep(500, 0.07);
+          }
+
           // Clique no botão CONFIRMAR COR (Avança para Digitação do Nome do Piloto)
           if (btnConfirm && click.x >= btnConfirm.x && click.x <= btnConfirm.x + btnConfirm.w &&
               click.y >= btnConfirm.y && click.y <= btnConfirm.y + btnConfirm.h) {
@@ -2682,11 +2736,12 @@
           const click = this.input.lastCanvasClick;
           this.input.lastCanvasClick = null;
 
-          // Seleção de Clima (seleciona o clima e avança o foco para Trilha Sonora)
-          for (let k = 0; k < L.conds.length; k++) {
-            const c = L.conds[k];
-            if (click.x >= c.x && click.x <= c.x + c.w && click.y >= c.y && click.y <= c.y + c.h) {
-              this.setEnvCond(ENV_CONDITIONS[c.i].id);
+          // Seleção de Horário (DIA / TARDE / NOITE)
+          for (let k = 0; k < L.timeBtns.length; k++) {
+            const b = L.timeBtns[k];
+            if (click.x >= b.x && click.x <= b.x + b.w && click.y >= b.y && click.y <= b.y + b.h) {
+              const curParts = this._getEnvParts(this.envCond);
+              this.setEnvCond(this._buildEnvId(b.id, curParts.weather));
               this.setupGroup = 1;
               this.audio.playBeep(440, 0.06);
               clickedInteractive = true;
@@ -2694,22 +2749,50 @@
             }
           }
 
-          // Seleção de Trilha Sonora (apenas seleciona a música!)
+          // Seleção de Clima (LIMPO / CHUVA / NEVE)
           if (!clickedInteractive) {
-            for (let k = 0; k < L.songs.length; k++) {
-              const c = L.songs[k];
-              if (click.x >= c.x && click.x <= c.x + c.w && click.y >= c.y && click.y <= c.y + c.h) {
-                this.songIndex = c.i;
-                this.setupGroup = 1;
-                this.audio.stopTitleMusic();
-                this.audio.musicPlaying = true;
-                if (this.audio && typeof this.audio.setSong === 'function') {
-                  this.audio.setSong(c.i);
-                }
-                this.audio.playBeep(523, 0.08);
+            for (let k = 0; k < L.weatherBtns.length; k++) {
+              const b = L.weatherBtns[k];
+              if (click.x >= b.x && click.x <= b.x + b.w && click.y >= b.y && click.y <= b.y + b.h) {
+                const curParts = this._getEnvParts(this.envCond);
+                const nextTime = (curParts.time === 'DINAMICO') ? 'DIA' : curParts.time;
+                this.setEnvCond(this._buildEnvId(nextTime, b.id));
+                this.setupGroup = 3;
+                this.audio.playBeep(440, 0.06);
                 clickedInteractive = true;
                 break;
               }
+            }
+          }
+
+          // Botão Modo Dinâmico (Horário + Clima)
+          if (!clickedInteractive && L.dynBtn) {
+            const db = L.dynBtn;
+            if (click.x >= db.x && click.x <= db.x + db.w && click.y >= db.y && click.y <= db.y + db.h) {
+              this.setEnvCond(this.envCond === 'DINAMICO' ? 'DIA' : 'DINAMICO');
+              this.setupGroup = 3;
+              this.audio.playBeep(480, 0.07);
+              clickedInteractive = true;
+            }
+          }
+
+          // Deck Toca-Fitas K7 (ANT / PRÓX)
+          if (!clickedInteractive && L.k7Box) {
+            const hitBox = (btn) => btn && click.x >= btn.x && click.x <= btn.x + btn.w && click.y >= btn.y && click.y <= btn.y + btn.h;
+            let k7Step = 0;
+            if (hitBox(L.k7PrevBtn)) k7Step = -1;
+            else if (hitBox(L.k7NextBtn)) k7Step = 1;
+            else if (hitBox(L.k7Box)) k7Step = (click.x < L.k7Box.x + L.k7Box.w / 2) ? -1 : 1;
+            if (k7Step !== 0) {
+              this.songIndex = (this.songIndex + k7Step + SONGS.length) % SONGS.length;
+              this.setupGroup = 3;
+              this.audio.stopTitleMusic();
+              this.audio.musicPlaying = true;
+              if (this.audio && typeof this.audio.setSong === 'function') {
+                this.audio.setSong(this.songIndex);
+              }
+              this.audio.playBeep(523, 0.08);
+              clickedInteractive = true;
             }
           }
 
@@ -2768,73 +2851,41 @@
         }
 
         if (this.input.justPressedUp) {
-          if (this.setupGroup === 2) {
-            this.setupGroup = 1;
-            this.audio.playBeep(380, 0.04);
-          } else if (this.setupGroup === 1) {
-            const colsSongs = (SONGS.length > 8) ? 3 : 2;
-            if (this.songIndex >= colsSongs) {
-              this.songIndex -= colsSongs;
-              this.audio.stopTitleMusic();
-              this.audio.musicPlaying = true;
-              if (this.audio && typeof this.audio.setSong === 'function') {
-                this.audio.setSong(this.songIndex);
-              }
-              this.audio.playBeep(330, 0.05);
-            } else {
-              this.setupGroup = 0;
-              const curIdx = ENV_CONDITIONS.findIndex(e => e.id === this.envCond);
-              if (curIdx < 4 && curIdx >= 0) {
-                this.setEnvCond(ENV_CONDITIONS[curIdx + 4].id);
-              }
-              this.audio.playBeep(380, 0.04);
-            }
-          } else {
-            const curIdx = ENV_CONDITIONS.findIndex(e => e.id === this.envCond);
-            if (curIdx >= 4) {
-              this.setEnvCond(ENV_CONDITIONS[curIdx - 4].id);
-              this.audio.playBeep(330, 0.05);
-            } else {
-              this.audio.playBeep(380, 0.04);
-            }
-          }
+          if (this.setupGroup > 0) this.setupGroup--;
+          this.audio.playBeep(380, 0.04);
         }
         if (this.input.justPressedDown) {
-          if (this.setupGroup === 0) {
-            const curIdx = ENV_CONDITIONS.findIndex(e => e.id === this.envCond);
-            if (curIdx < 4 && curIdx >= 0) {
-              this.setEnvCond(ENV_CONDITIONS[curIdx + 4].id);
-              this.audio.playBeep(330, 0.05);
-            } else {
-              this.setupGroup = 1;
-              this.audio.playBeep(380, 0.04);
-            }
-          } else if (this.setupGroup === 1) {
-            const colsSongs = (SONGS.length > 8) ? 3 : 2;
-            if (this.songIndex + colsSongs < SONGS.length) {
-              this.songIndex += colsSongs;
-              this.audio.stopTitleMusic();
-              this.audio.musicPlaying = true;
-              if (this.audio && typeof this.audio.setSong === 'function') {
-                this.audio.setSong(this.songIndex);
-              }
-              this.audio.playBeep(330, 0.05);
-            } else {
-              this.setupGroup = 2;
+          if (this.setupGroup < 4) {
+            this.setupGroup++;
+            if (this.setupGroup === 4) {
               if (this.setupActionIdx === undefined) this.setupActionIdx = 2;
               if (!L.qualyBtn && this.setupActionIdx === 1) this.setupActionIdx = 2;
-              this.audio.playBeep(380, 0.04);
             }
           }
+          this.audio.playBeep(380, 0.04);
         }
-        if (this.input.justPressedLeft) {
+        if (this.input.justPressedLeft || this.input.justPressedRight) {
+          const dir = this.input.justPressedRight ? 1 : -1;
           if (this.setupGroup === 0) {
-            const curIdx = ENV_CONDITIONS.findIndex(e => e.id === this.envCond);
-            const nextIdx = (curIdx - 1 + ENV_CONDITIONS.length) % ENV_CONDITIONS.length;
-            this.setEnvCond(ENV_CONDITIONS[nextIdx].id);
+            const tList = ['DIA', 'TARDE', 'NOITE'];
+            const curParts = this._getEnvParts(this.envCond);
+            const tIdx = Math.max(0, tList.indexOf(curParts.time === 'DINAMICO' ? 'DIA' : curParts.time));
+            const nextTime = tList[(tIdx + dir + tList.length) % tList.length];
+            this.setEnvCond(this._buildEnvId(nextTime, curParts.weather));
             this.audio.playBeep(330, 0.05);
           } else if (this.setupGroup === 1) {
-            this.songIndex = (this.songIndex - 1 + SONGS.length) % SONGS.length;
+            const wList = ['LIMPO', 'CHUVA', 'NEVE'];
+            const curParts = this._getEnvParts(this.envCond);
+            const nextTime = (curParts.time === 'DINAMICO') ? 'DIA' : curParts.time;
+            const wIdx = Math.max(0, wList.indexOf(curParts.weather));
+            const nextW = wList[(wIdx + dir + wList.length) % wList.length];
+            this.setEnvCond(this._buildEnvId(nextTime, nextW));
+            this.audio.playBeep(330, 0.05);
+          } else if (this.setupGroup === 2) {
+            this.setEnvCond(this.envCond === 'DINAMICO' ? 'DIA' : 'DINAMICO');
+            this.audio.playBeep(440, 0.06);
+          } else if (this.setupGroup === 3) {
+            this.songIndex = (this.songIndex + dir + SONGS.length) % SONGS.length;
             this.audio.stopTitleMusic();
             this.audio.musicPlaying = true;
             if (this.audio && typeof this.audio.setSong === 'function') {
@@ -2844,43 +2895,34 @@
           } else {
             const opts = L.qualyBtn ? [0, 1, 2] : [0, 2];
             const pos = Math.max(0, opts.indexOf(this.setupActionIdx !== undefined ? this.setupActionIdx : 2));
-            this.setupActionIdx = opts[(pos - 1 + opts.length) % opts.length];
-            this.audio.playBeep(330, 0.05);
-          }
-        }
-        if (this.input.justPressedRight) {
-          if (this.setupGroup === 0) {
-            const curIdx = ENV_CONDITIONS.findIndex(e => e.id === this.envCond);
-            const nextIdx = (curIdx + 1) % ENV_CONDITIONS.length;
-            this.setEnvCond(ENV_CONDITIONS[nextIdx].id);
-            this.audio.playBeep(330, 0.05);
-          } else if (this.setupGroup === 1) {
-            this.songIndex = (this.songIndex + 1) % SONGS.length;
-            this.audio.stopTitleMusic();
-            this.audio.musicPlaying = true;
-            if (this.audio && typeof this.audio.setSong === 'function') {
-              this.audio.setSong(this.songIndex);
-            }
-            this.audio.playBeep(330, 0.05);
-          } else {
-            const opts = L.qualyBtn ? [0, 1, 2] : [0, 2];
-            const pos = Math.max(0, opts.indexOf(this.setupActionIdx !== undefined ? this.setupActionIdx : 2));
-            this.setupActionIdx = opts[(pos + 1) % opts.length];
+            this.setupActionIdx = opts[(pos + dir + opts.length) % opts.length];
             this.audio.playBeep(330, 0.05);
           }
         }
 
         if (this.input.justPressedEnter && this.setupCooldown <= 0) {
           if (this.setupGroup === 0) {
-            // 1º Enter/Botão A: confirma o clima escolhido e passa o foco para a Trilha Sonora
             this.setupGroup = 1;
             this.audio.playBeep(440, 0.08);
             this.input.clearPulses();
             return;
           }
           if (this.setupGroup === 1) {
-            // 2º Enter/Botão A: confirma a música e passa o foco para Confirmar (botão 2)
-            this.setupGroup = 2;
+            this.setupGroup = 3;
+            this.audio.playBeep(440, 0.08);
+            this.input.clearPulses();
+            return;
+          }
+          if (this.setupGroup === 2) {
+            this.setEnvCond('DINAMICO');
+            this.setupGroup = 3;
+            this.audio.playBeep(480, 0.08);
+            this.input.clearPulses();
+            return;
+          }
+          if (this.setupGroup === 3) {
+            // Confirma a música no K7 e passa o foco para Confirmar (botão 2)
+            this.setupGroup = 4;
             this.setupActionIdx = 2;
             this.audio.playBeep(440, 0.08);
             this.input.clearPulses();
@@ -3358,14 +3400,9 @@
           this.seasonStage++;
           this.trackIndex = this.seasonSchedule[this.seasonStage];
           this.loadTrack(this.trackIndex);
-          const curSong = this.songIndex;
-          let nextSong = curSong;
           if (SONGS.length > 1) {
-            do {
-              nextSong = Math.floor(Math.random() * SONGS.length);
-            } while (nextSong === curSong);
+            this.songIndex = ((this.songIndex || 0) + 1) % SONGS.length;
           }
-          this.songIndex = nextSong;
           this.setupCooldown = 0.25;
           this.setupGroup = 0;
           this.fadeTransition('RACE_SETUP');
@@ -3513,6 +3550,25 @@
           this.overtakesCount += (this.prevPlayerRank - curRank);
         }
         if (curRank > 0) this.prevPlayerRank = curRank;
+        if (this.player.speed > (this.maxSpeedReached || 0)) this.maxSpeedReached = this.player.speed;
+        if (this.player.slipstreamIntensity > 0.12) this.slipstreamTime = (this.slipstreamTime || 0) + dt;
+
+        // Bandeira Azul: detecta retardatário (1+ volta atrás) logo à frente do jogador
+        this.blueFlagActive = false;
+        if (!this.isQualifying && this.track && this.track.totalLength > 0) {
+          const lapThreshold = this.track.totalLength * 0.75;
+          for (let bi = 0; bi < this.cars.length; bi++) {
+            const c = this.cars[bi];
+            if (c.isPlayer || c.eliminated || c.inPitLane) continue;
+            if (c.totalDistance < this.player.totalDistance - lapThreshold) {
+              const dzAhead = this.shortestDeltaZ(c.z, this.player.z);
+              if (dzAhead > 0 && dzAhead < 1800) {
+                this.blueFlagActive = true;
+                break;
+              }
+            }
+          }
+        }
 
         // Pit Lane estilo Top Gear 1 (fechado na volta 1; corredor largo à direita ou esquerda; obrigatório ir até a saída normal)
         const curPitSeg = this.findSegment(this.player.z);
@@ -3567,6 +3623,7 @@
           if (this.player.pitEntered && this.player.pitTimer >= 0.65) {
             this.player.nitroCharges = 3;
             this.player.pitUsedLap = this.player.laps;
+            this.pitStopsCount = (this.pitStopsCount || 0) + 1;
             const exitBoost = Math.round(this.getEffectiveMaxSpeed(this.player) * 0.92);
             this.player.speed = Math.max(this.player.speed, exitBoost);
             if (this.audio) this.audio.playBeep(784, 0.2);
@@ -3901,6 +3958,38 @@
         p.bumpVelX = 0;
       }
       p.x = Math.max(Math.min(p.x, 2.25), -2.25);
+
+      // Colisão física com o guardrail das arquibancadas na PISTA TESTE
+      const _curTrackDef = TRACK_DEFINITIONS[this.trackIndex];
+      if (_curTrackDef && _curTrackDef.id === 'teste' && playerSeg) {
+        const aheadSeg = this.findSegment(p.z + SEGMENT_LENGTH);
+        const gsList = [];
+        if (playerSeg.pitWall) gsList.push(-(playerSeg.pitSide || 1));
+        if (playerSeg.grandstandSide) gsList.push(playerSeg.grandstandSide);
+        if (aheadSeg && aheadSeg.pitWall) gsList.push(-(aheadSeg.pitSide || 1));
+        if (aheadSeg && aheadSeg.grandstandSide) gsList.push(aheadSeg.grandstandSide);
+        for (let gi = 0; gi < gsList.length; gi++) {
+          const gs = gsList[gi];
+          if (gs !== 0 && (p.x * gs) > 1.12) {
+            p.x = gs * 1.12;
+            const bounce = 0.32 + Math.min(0.55, (p.speed / 320) * 0.55);
+            p.bumpVelX = -gs * Math.max(Math.abs(p.bumpVelX || 0), bounce);
+            p.speed = Math.max(30, p.speed * 0.94);
+            this.shake = Math.max(this.shake, 2.6);
+            if (p.speed > 55) {
+              for (let sp = 0; sp < 2; sp++) {
+                this.particlePool.spawn(
+                  gs * 1.19, 0.05, p.z - 4,
+                  -gs * (0.25 + Math.random() * 0.35),
+                  -0.25 - Math.random() * 0.35,
+                  0.18 + Math.random() * 0.12,
+                  sp === 0 ? '#FFD700' : '#FFFFFF'
+                );
+              }
+            }
+          }
+        }
+      }
 
       if (p.inPitLane) {
         p.speed = Math.min(p.speed, 140);
@@ -4287,6 +4376,13 @@
           const distZ = this.shortestDeltaZ(other.z, bot.z);
           const latDiff = Math.abs(other.x - bot.x);
 
+          // 0. BANDEIRA AZUL: se bot for retardatário (1+ volta atrás) e líder estiver atrás, abre passagem
+          if (this.track && this.track.totalLength > 0 && distZ < 0 && distZ > -1800 &&
+              other.totalDistance > bot.totalDistance + this.track.totalLength * 0.75 && !bot.inPitLane) {
+            bot.targetX = (other.x >= 0) ? -0.78 : 0.78;
+            targetSpeed = Math.min(targetSpeed, other.speed * 0.90);
+          }
+
           // 1. CARROS EMPARELHADOS LATERALMENTE (|distZ| <= 55):
           // Afasta ativamente durante a corrida para evitar contato lateral ou esfregar porta!
           if (this.raceTimer > 3.0 && Math.abs(distZ) <= 55 && latDiff < 0.44) {
@@ -4296,19 +4392,20 @@
           }
 
           // 2. CARRO À FRENTE NO MESMO TRILHO (distZ > 0):
-          if (distZ > 0 && distZ < 450 && latDiff < 0.44) {
+          if (distZ > 0 && distZ < 540 && latDiff < 0.50) {
             blocked = true;
             if (this.raceTimer > 2.8) {
-              // Estilingue (Slingshot): quando próximo, puxa com firmeza para a pista livre
-              // ultrapassando sem bater na traseira!
-              const passDir = (other.x >= 0) ? -0.54 : 0.54;
-              bot.targetX = Math.max(-0.80, Math.min(0.80, other.x + passDir));
-              // Aciona o benefício do slingshot para impulsionar a ultrapassagem
+              // Estilingue (Slingshot): abre lateralmente mais cedo e com folga para passar limpo sem bater na traseira
+              const passDir = (other.x >= 0) ? -0.68 : 0.68;
+              bot.targetX = Math.max(-0.84, Math.min(0.84, other.x + passDir));
               bot.slipstreamDecayTimer = 1.2;
             }
-            // Se estiver muito próximo na mesma linha sem espaço para passar, alivia o acelerador
-            if (distZ < 65 && latDiff < 0.30 && bot.bumpBoostTimer <= 0 && !bot.isNitro) {
-              targetSpeed = Math.min(targetSpeed, other.speed * 0.94);
+            // Controle preventivo de aproximação (inclusive com Nitro) para não bater no para-choque traseiro
+            if (distZ < 150 && latDiff < 0.42) {
+              targetSpeed = Math.min(targetSpeed, other.speed * 0.96);
+              if (distZ < 85 && latDiff < 0.36 && bot.speed > other.speed) {
+                bot.speed = Math.max(other.speed * 0.94, bot.speed - 210 * dt);
+              }
             }
           }
         }
@@ -4361,9 +4458,25 @@
           bot.pitWant = false;
         }
 
+        // Colisão física dos bots com o guardrail das arquibancadas na PISTA TESTE
+        const _botTrackDef = TRACK_DEFINITIONS[this.trackIndex];
+        if (_botTrackDef && _botTrackDef.id === 'teste' && botSeg) {
+          if (botSeg.pitWall) {
+            const gsPit = -(botSeg.pitSide || 1);
+            if ((bot.x * gsPit) > 1.12) {
+              bot.x = gsPit * 1.12;
+              bot.speed *= 0.96;
+            }
+          }
+          if (botSeg.grandstandSide && (bot.x * botSeg.grandstandSide) > 1.12) {
+            bot.x = botSeg.grandstandSide * 1.12;
+            bot.speed *= 0.96;
+          }
+        }
+
         // Aplicação de aceleração e frenagem do Bot
-        if (blocked && bot.speed > targetSpeed + 12 && bot.bumpBoostTimer <= 0 && !bot.isNitro) {
-          bot.speed = Math.max(bot.speed - 190 * dt, targetSpeed);
+        if (blocked && bot.speed > targetSpeed + 8 && bot.bumpBoostTimer <= 0) {
+          bot.speed = Math.max(bot.speed - 210 * dt, targetSpeed);
           bot.isBraking = true;
         } else {
           bot.isBraking = false;
@@ -4404,10 +4517,11 @@
           bot.targetX = (bot.x > 0 ? 0.70 : -0.70);
           bot.speed = Math.max(40, bot.speed - 90 * dt);
         } else {
-          bot.targetX = Math.max(-0.80, Math.min(0.80, bot.targetX));
+          bot.targetX = Math.max(-0.84, Math.min(0.84, bot.targetX));
         }
         const prevBotX = bot.x;
-        bot.x += (bot.targetX - bot.x) * 2.4 * dt;
+        const botLatRate = blocked ? 4.2 : 2.4;
+        bot.x += (bot.targetX - bot.x) * botLatRate * dt;
 
         // Angulo visual dos bots para acionar os 3 sprites (curva a esquerda, reto, curva a direita)
         const lateralVel = (bot.x - prevBotX) / Math.max(0.001, dt);

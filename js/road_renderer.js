@@ -61,6 +61,7 @@
 
       const cameraX = this.finishingRace ? this.finishCameraX : (p.x * ROAD_WIDTH * 0.65);
       const cameraY = this.finishingRace ? this.finishCameraY : (camH + playerWorldY);
+      const drawnSegs = (def && def.id === 'teste') ? new Set() : null;
       for (let n = 0; n < DRAW_DISTANCE; n++) {
         const segment = this.track.segments[(baseSegment.index + n) % totalSegs];
         const looped = segment.index < baseSegment.index;
@@ -76,6 +77,7 @@
           continue;
         }
 
+        if (drawnSegs) drawnSegs.add(segment.index);
         this.renderSegment(ctx, segment, maxY);
         maxY = segment.p2.screen.y;
       }
@@ -115,6 +117,42 @@
 
         if (segment.overheadBridge && segment.p1.screen.y <= segment.clipY + 8) {
           this.renderOverheadBridge(ctx, segment, def);
+        }
+
+        if (def && def.id === 'teste' && drawnSegs && drawnSegs.has(segment.index) && segment.p1.screen.w > 6) {
+          const prevSeg = this.track.segments[(segment.index - 1 + totalSegs) % totalSegs];
+          const prevNotDrawn = !!(drawnSegs && !drawnSegs.has(prevSeg.index) && segment.p1.screen.y < INTERNAL_HEIGHT + 24 && segment.p1.screen.y > segment.p2.screen.y + 0.5);
+          const makeNearSeg = (seg) => {
+            const sp1 = seg.p1.screen, sp2 = seg.p2.screen;
+            const targetY = INTERNAL_HEIGHT + 240;
+            const t = Math.min(25, (targetY - sp2.y) / (sp1.y - sp2.y));
+            return {
+              index: seg.index,
+              pitSide: seg.pitSide,
+              grandstandSide: seg.grandstandSide,
+              p1: { screen: { x: sp2.x + (sp1.x - sp2.x) * t, y: targetY, w: sp2.w + (sp1.w - sp2.w) * t } },
+              p2: { screen: { x: sp1.x, y: sp1.y, w: sp1.w } }
+            };
+          };
+          if (segment.pitWall) {
+            const gs = -(segment.pitSide || 1);
+            this.renderTesteGrandstand(ctx, segment, isDark, nightIntensity, gs, segment.index === 18, segment.index === 89);
+            if (prevNotDrawn && prevSeg.pitWall && segment.index !== 18) {
+              this.renderTesteGrandstand(ctx, makeNearSeg(segment), isDark, nightIntensity, gs, false, false);
+            }
+            if (segment.index >= 18 && segment.index < 72) {
+              this.renderTestePitGarages(ctx, segment, isDark, nightIntensity);
+              if (prevNotDrawn && prevSeg.pitWall && segment.index > 18 && prevSeg.index >= 18 && prevSeg.index < 72) {
+                this.renderTestePitGarages(ctx, makeNearSeg(segment), isDark, nightIntensity);
+              }
+            }
+          }
+          if (segment.grandstandSide) {
+            this.renderTesteGrandstand(ctx, segment, isDark, nightIntensity, segment.grandstandSide, !!segment.grandstandStart, !!segment.grandstandEnd);
+            if (prevNotDrawn && !segment.grandstandStart && prevSeg.grandstandSide === segment.grandstandSide) {
+              this.renderTesteGrandstand(ctx, makeNearSeg(segment), isDark, nightIntensity, segment.grandstandSide, false, false);
+            }
+          }
         }
 
         if (segment.scenery && segment.p1.screen.y <= segment.clipY + 2) {
@@ -191,6 +229,295 @@
       }
     }
 
+    renderTesteGrandstand(ctx, segment, isDark = false, nightIntensity = 0, gsOverride = null, isStart = false, isEnd = false) {
+      const p1 = segment.p1.screen;
+      const p2 = segment.p2.screen;
+      if (p1.w <= 6 || p2.y >= p1.y) return;
+
+      const ps = segment.pitSide || 1;
+      const gs = (gsOverride !== null) ? gsOverride : -ps;
+      const segBottomY = p1.y;
+      const topY = p2.y;
+
+      const rail1 = p1.x + p1.w * gs * 1.21, rail2 = p2.x + p2.w * gs * 1.21;
+      const baseIn1 = p1.x + p1.w * gs * 1.30, baseIn2 = p2.x + p2.w * gs * 1.30;
+      const t1Out1 = p1.x + p1.w * gs * 1.60, t1Out2 = p2.x + p2.w * gs * 1.60;
+      const t2Out1 = p1.x + p1.w * gs * 1.92, t2Out2 = p2.x + p2.w * gs * 1.92;
+      const t3Out1 = p1.x + p1.w * gs * 2.24, t3Out2 = p2.x + p2.w * gs * 2.24;
+      const t4Out1 = p1.x + p1.w * gs * 2.54, t4Out2 = p2.x + p2.w * gs * 2.54;
+
+      const hBase1 = p1.w * 0.14, hBase2 = p2.w * 0.14;
+      const hT1_1 = p1.w * 0.28, hT1_2 = p2.w * 0.28;
+      const hT2_1 = p1.w * 0.42, hT2_2 = p2.w * 0.42;
+      const hT3_1 = p1.w * 0.56, hT3_2 = p2.w * 0.56;
+      const hRoof1 = p1.w * 0.76, hRoof2 = p2.w * 0.76;
+
+      // Parede traseira contínua suave sustentando a estrutura
+      this.drawPoly(ctx, t3Out1, segBottomY, t3Out1, segBottomY - hRoof1 * 1.04, t3Out2, topY - hRoof2 * 1.04, t3Out2, topY, '#0F172A');
+      // Mureta de base contínua + friso superior discreto
+      this.drawPoly(ctx, baseIn1, segBottomY, baseIn1, segBottomY - hBase1, baseIn2, topY - hBase2, baseIn2, topY, '#1E293B');
+      this.drawPoly(ctx, baseIn1, segBottomY - hBase1 * 0.84, baseIn1, segBottomY - hBase1, baseIn2, topY - hBase2, baseIn2, topY - hBase2 * 0.84, '#475569');
+
+      // 3 degraus contínuos e suaves (sem quadriculado por segmento)
+      this.drawPoly(ctx, baseIn1, segBottomY - hBase1, t1Out1, segBottomY - hT1_1, t1Out2, topY - hT1_2, baseIn2, topY - hBase2, '#334155');
+      this.drawPoly(ctx, t1Out1, segBottomY - hT1_1, t2Out1, segBottomY - hT2_1, t2Out2, topY - hT2_2, t1Out2, topY - hT1_2, '#3E4C5E');
+      this.drawPoly(ctx, t2Out1, segBottomY - hT2_1, t3Out1, segBottomY - hT3_1, t3Out2, topY - hT3_2, t2Out2, topY - hT2_2, '#334155');
+
+      // Cobertura inclinada contínua + testeira vermelha elegante
+      this.drawPoly(ctx, baseIn1, segBottomY - hRoof1, t4Out1, segBottomY - hRoof1 * 1.06, t4Out2, topY - hRoof2 * 1.06, baseIn2, topY - hRoof2, '#1E293B');
+      const fasciaH1 = p1.w * 0.048, fasciaH2 = p2.w * 0.048;
+      this.drawPoly(ctx, baseIn1, segBottomY - hRoof1 + fasciaH1, baseIn1, segBottomY - hRoof1, baseIn2, topY - hRoof2, baseIn2, topY - hRoof2 + fasciaH2, '#DC2626');
+
+      // Torcida diversa (homens e mulheres, variações de pele branca, parda e negra)
+      if (p1.w > 9 && !isStart && !isEnd) {
+        const shirtCols = ['#EF4444', '#FACC15', '#38BDF8', '#E2E8F0', '#22C55E', '#F97316', '#EC4899', '#A855F7'];
+        const skinCols = ['#FDE2C4', '#FDBA74', '#C68642', '#9A5B25', '#6F4E37', '#4A2E1B'];
+        const hairCols = ['#111827', '#291709', '#5C3317', '#92400E', '#D97706', '#7C2D12'];
+        const tiers = [
+          { off: 1.38, h: 0.21 },
+          { off: 1.69, h: 0.34 },
+          { off: 2.01, h: 0.48 }
+        ];
+        const rBody = Math.max(1.2, p1.w * 0.018);
+        const rHead = Math.max(0.9, p1.w * 0.011);
+        for (let t = 0; t < tiers.length; t++) {
+          for (let sub = 0; sub < 2; sub++) {
+            const seed = (segment.index * 17 + t * 7 + sub * 11);
+            const cx = p1.x + p1.w * gs * (tiers[t].off + sub * 0.13);
+            const cy = segBottomY - p1.w * (tiers[t].h + sub * 0.025);
+            const shirt = shirtCols[seed % shirtCols.length];
+            const skin = skinCols[(seed * 3 + t) % skinCols.length];
+            const hair = hairCols[(seed * 5 + sub) % hairCols.length];
+            const isWoman = ((seed + t) % 2 === 1);
+            // Ombros/tronco arredondados
+            ctx.fillStyle = shirt;
+            ctx.beginPath();
+            ctx.arc(cx, cy - rBody * 0.5, rBody, Math.PI, 0);
+            ctx.lineTo(cx + rBody, cy);
+            ctx.lineTo(cx - rBody, cy);
+            ctx.closePath();
+            ctx.fill();
+            // Cabelo longo atrás/dos lados para mulheres (desenhado antes do rosto)
+            if (isWoman && p1.w > 13) {
+              ctx.fillStyle = hair;
+              ctx.beginPath();
+              ctx.arc(cx, cy - rBody * 1.50, rHead * 1.24, Math.PI * 0.85, Math.PI * 0.15);
+              ctx.lineTo(cx + rHead * 1.15, cy - rBody * 0.55);
+              ctx.lineTo(cx - rHead * 1.15, cy - rBody * 0.55);
+              ctx.closePath();
+              ctx.fill();
+            }
+            // Cabeça circular com tom de pele variado
+            ctx.fillStyle = skin;
+            ctx.beginPath();
+            ctx.arc(cx, cy - rBody * 1.55, rHead, 0, Math.PI * 2);
+            ctx.fill();
+            if (p1.w > 16) {
+              ctx.fillStyle = hair;
+              ctx.beginPath();
+              ctx.arc(cx, cy - rBody * 1.68, rHead * 0.98, Math.PI, 0);
+              ctx.fill();
+              if (isWoman && (seed % 3 === 0)) {
+                // Coque/rabo de cavalo no topo
+                ctx.beginPath();
+                ctx.arc(cx, cy - rBody * 2.15, rHead * 0.45, 0, Math.PI * 2);
+                ctx.fill();
+              }
+            }
+          }
+        }
+      }
+
+      // Pilares estruturais a cada 6 segmentos + Refletor de teto ligado à noite/tarde
+      if (segment.index % 6 === 0 && p1.w > 8) {
+        const colW = Math.max(1.5, p1.w * 0.032);
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(t3Out1 - colW * 0.5, segBottomY - hRoof1 * 1.04, colW, hRoof1 * 1.04 - hT3_1);
+        ctx.fillRect(baseIn1 - colW * 0.4, segBottomY - hRoof1, colW * 0.8, hRoof1 - hBase1);
+
+        // Suporte + refletor no topo da marquise apontado para a pista (contraface aos boxes)
+        const toTrack = -gs;
+        const lampX = baseIn1;
+        const lampY = segBottomY - hRoof1 - p1.w * 0.032;
+        const lampW = Math.max(2.5, p1.w * 0.055);
+        const lampH = Math.max(1.5, p1.w * 0.026);
+        ctx.fillStyle = '#334155';
+        ctx.beginPath();
+        ctx.moveTo(lampX - lampW * 0.35, lampY);
+        ctx.lineTo(lampX + lampW * 0.35 + toTrack * lampW * 0.3, lampY + lampH * 0.2);
+        ctx.lineTo(lampX + lampW * 0.25 + toTrack * lampW * 0.4, lampY + lampH);
+        ctx.lineTo(lampX - lampW * 0.35, lampY + lampH * 0.8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = isDark ? '#FFFDE7' : '#94A3B8';
+        ctx.fillRect(lampX + (toTrack > 0 ? 0 : -lampW * 0.45), lampY + lampH * 0.25, lampW * 0.48, lampH * 0.55);
+
+        if (isDark && p1.w > 12) {
+          const glowAlpha = Math.max(0.24, Math.min(0.52, 0.30 + nightIntensity * 0.22));
+          const beamEndY = lampY + lampH + (segBottomY - lampY) * 0.48;
+          const coneGrad = ctx.createLinearGradient(lampX, lampY + lampH, lampX + toTrack * p1.w * 0.24, beamEndY);
+          coneGrad.addColorStop(0, `rgba(255, 249, 196, ${glowAlpha.toFixed(2)})`);
+          coneGrad.addColorStop(1, 'rgba(255, 238, 88, 0)');
+          ctx.fillStyle = coneGrad;
+          ctx.beginPath();
+          ctx.moveTo(lampX, lampY + lampH * 0.3);
+          ctx.lineTo(lampX + toTrack * lampW * 0.45, lampY + lampH);
+          ctx.lineTo(lampX + toTrack * p1.w * 0.46, beamEndY);
+          ctx.lineTo(lampX + toTrack * p1.w * 0.04, beamEndY);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      // Guardrail contínuo na frente da arquibancada por toda a extensão
+      const gh1 = Math.max(2.5, p1.w * 0.09), gh2 = Math.max(1.2, p2.w * 0.09);
+      const rw1 = Math.max(1.2, p1.w * 0.028) * gs, rw2 = Math.max(0.6, p2.w * 0.028) * gs;
+      if (segment.index % 3 === 0) {
+        const postW = Math.max(1, p1.w * 0.018);
+        ctx.fillStyle = '#64748B';
+        ctx.fillRect(rail1 - postW * 0.5, segBottomY - gh1 * 1.1, postW, gh1 * 1.1);
+      }
+      this.drawPoly(ctx, rail1, segBottomY - gh1, rail1 + rw1, segBottomY - gh1, rail2 + rw2, topY - gh2, rail2, topY - gh2, '#CBD5E1');
+      this.drawPoly(ctx, rail1, segBottomY - gh1 * 0.52, rail1 + rw1, segBottomY - gh1 * 0.52, rail2 + rw2, topY - gh2 * 0.52, rail2, topY - gh2 * 0.52, '#94A3B8');
+
+      // Parede lateral de fechamento no início/fim da arquibancada
+      if (isStart || isEnd) {
+        this.drawPoly(ctx, baseIn1, segBottomY, t3Out1, segBottomY, t3Out1, segBottomY - hRoof1 * 1.04, baseIn1, segBottomY - hRoof1, '#1E293B');
+      }
+    }
+
+    renderTestePitGarages(ctx, segment, isDark = false, nightIntensity = 0) {
+      const p1 = segment.p1.screen;
+      const p2 = segment.p2.screen;
+      if (p1.w <= 6 || p2.y >= p1.y) return;
+
+      const ps = segment.pitSide || 1;
+      const segBottomY = p1.y;
+      const topY = p2.y;
+
+      const garIn1 = p1.x + p1.w * ps * 2.34, garIn2 = p2.x + p2.w * ps * 2.34;
+      const garOut1 = p1.x + p1.w * ps * 3.24, garOut2 = p2.x + p2.w * ps * 3.24;
+      const roofIn1 = p1.x + p1.w * ps * 2.18, roofIn2 = p2.x + p2.w * ps * 2.18;
+
+      const hGar1 = p1.w * 0.36, hGar2 = p2.w * 0.36;
+      const hFas1 = p1.w * 0.50, hFas2 = p2.w * 0.50;
+      const hPad1 = p1.w * 0.72, hPad2 = p2.w * 0.72;
+      const hRoof1 = p1.w * 0.79, hRoof2 = p2.w * 0.79;
+
+      const TEAM_BOXES = [
+        { col: '#DC2626', code: 'FER' },
+        { col: '#06B6D4', code: 'MER' },
+        { col: '#F97316', code: 'MCL' },
+        { col: '#2563EB', code: 'RBR' },
+        { col: '#10B981', code: 'AST' },
+        { col: '#EC4899', code: 'ALP' },
+        { col: '#38BDF8', code: 'WIL' },
+        { col: '#E11D48', code: 'HAS' },
+        { col: '#A855F7', code: 'LH44' }
+      ];
+      const bayIdx = Math.floor((segment.index - 18) / 6);
+      const bayLocal = (segment.index - 18) % 6;
+      const team = TEAM_BOXES[bayIdx % TEAM_BOXES.length];
+
+      // Interior contínuo e suave do box (sem alternância quadriculada)
+      this.drawPoly(ctx, garIn1, segBottomY, garIn1, segBottomY - hGar1, garIn2, topY - hGar2, garIn2, topY, bayLocal === 0 ? '#475569' : '#0B1120');
+      if (bayLocal !== 0 && p1.w > 10) {
+        // Piso epóxi contínuo da garagem
+        this.drawPoly(ctx, garIn1, segBottomY, garIn1, segBottomY - hGar1 * 0.14, garIn2, topY - hGar2 * 0.14, garIn2, topY, '#1E293B');
+      }
+
+      // Divisória estrutural entre boxes ou equipamentos suaves internos
+      if (bayLocal === 0) {
+        this.drawPoly(ctx, garIn1, segBottomY, garOut1, segBottomY, garOut1, segBottomY - hPad1, garIn1, segBottomY - hPad1, '#334155');
+      } else if (p1.w > 12) {
+        if (bayLocal === 1 || bayLocal === 5) {
+          // Pilha arredondada de pneus slick dentro do box
+          const tr = Math.max(1.5, p1.w * 0.032);
+          const tx = garIn1 + ps * p1.w * 0.06;
+          for (let st = 0; st < 3; st++) {
+            ctx.fillStyle = '#18181B';
+            ctx.beginPath();
+            ctx.arc(tx, segBottomY - tr * (0.9 + st * 1.45), tr, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = team.col;
+            ctx.lineWidth = Math.max(0.6, tr * 0.25);
+            ctx.stroke();
+          }
+        } else if (bayLocal === 3) {
+          // Painel de telemetria suave + luz interna do box
+          const monW = Math.max(2.5, p1.w * 0.10);
+          const monH = Math.max(2, hGar1 * 0.34);
+          const mx = garIn1 + ps * p1.w * 0.04 - (ps < 0 ? monW : 0);
+          ctx.fillStyle = '#0284C7';
+          ctx.fillRect(mx, segBottomY - hGar1 * 0.66, monW, monH);
+          ctx.fillStyle = '#E0F2FE';
+          ctx.fillRect(mx, segBottomY - hGar1 * 0.94, monW * 1.15, Math.max(1, hGar1 * 0.06));
+        }
+      }
+
+      // Faixa contínua da equipe acima da porta do box + sigla
+      this.drawPoly(ctx, garIn1, segBottomY - hGar1, garIn1, segBottomY - hFas1, garIn2, topY - hFas2, garIn2, topY - hGar2, team.col);
+      if (bayLocal === 3 && p1.w > 12) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = `bold ${Math.max(3, (hFas1 - hGar1) * 0.62).toFixed(1)}px monospace`;
+        ctx.textAlign = ps > 0 ? 'left' : 'right';
+        ctx.fillText(team.code, garIn1 + ps * p1.w * 0.04, segBottomY - (hGar1 + hFas1) * 0.46);
+      }
+
+      // 2º andar Paddock Club: vidro contínuo suave + faixa de reflexo horizontal + guarda-corpo
+      this.drawPoly(ctx, garIn1, segBottomY - hFas1, garIn1, segBottomY - hPad1, garIn2, topY - hPad2, garIn2, topY - hFas2, '#0F172A');
+      this.drawPoly(ctx, garIn1, segBottomY - hFas1 * 1.12, garIn1, segBottomY - hPad1 * 0.92, garIn2, topY - hPad2 * 0.92, garIn2, topY - hFas2 * 1.12, isDark ? '#172554' : '#1E3A5F');
+      this.drawPoly(ctx, garIn1, segBottomY - hFas1, garIn1, segBottomY - hFas1 * 1.05, garIn2, topY - hFas2 * 1.05, garIn2, topY - hFas2, '#CBD5E1');
+      if (segment.index % 3 === 0 && p1.w > 10) {
+        const mullW = Math.max(0.8, p1.w * 0.012);
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(garIn1 - mullW * 0.5, segBottomY - hPad1, mullW, hPad1 - hFas1);
+      }
+
+      // Marquise contínua suave dos boxes avançando sobre o Pit Lane
+      this.drawPoly(ctx, roofIn1, segBottomY - hPad1, garOut1, segBottomY - hRoof1, garOut2, topY - hRoof2, roofIn2, topY - hPad2, '#1E293B');
+
+      // Refletores de teto dos boxes (ligados automaticamente com isDark igual aos postes, apontados para o Pit Lane/pista)
+      if (bayLocal === 3 && p1.w > 8) {
+        const toTrack = -ps;
+        const lampX = roofIn1;
+        const lampY = segBottomY - hPad1 - p1.w * 0.025;
+        const lampW = Math.max(2.5, p1.w * 0.055);
+        const lampH = Math.max(1.5, p1.w * 0.026);
+        ctx.fillStyle = '#334155';
+        ctx.beginPath();
+        ctx.moveTo(lampX - lampW * 0.35, lampY);
+        ctx.lineTo(lampX + lampW * 0.35 + toTrack * lampW * 0.3, lampY + lampH * 0.2);
+        ctx.lineTo(lampX + lampW * 0.25 + toTrack * lampW * 0.4, lampY + lampH);
+        ctx.lineTo(lampX - lampW * 0.35, lampY + lampH * 0.8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = isDark ? '#FFFDE7' : '#94A3B8';
+        ctx.fillRect(lampX + (toTrack > 0 ? 0 : -lampW * 0.45), lampY + lampH * 0.25, lampW * 0.48, lampH * 0.55);
+
+        if (isDark && p1.w > 12) {
+          const glowAlpha = Math.max(0.24, Math.min(0.52, 0.30 + nightIntensity * 0.22));
+          const beamEndY = lampY + lampH + (segBottomY - lampY) * 0.62;
+          const coneGrad = ctx.createLinearGradient(lampX, lampY + lampH, lampX + toTrack * p1.w * 0.22, beamEndY);
+          coneGrad.addColorStop(0, `rgba(255, 249, 196, ${glowAlpha.toFixed(2)})`);
+          coneGrad.addColorStop(1, 'rgba(255, 238, 88, 0)');
+          ctx.fillStyle = coneGrad;
+          ctx.beginPath();
+          ctx.moveTo(lampX, lampY + lampH * 0.3);
+          ctx.lineTo(lampX + toTrack * lampW * 0.45, lampY + lampH);
+          ctx.lineTo(lampX + toTrack * p1.w * 0.40, beamEndY);
+          ctx.lineTo(lampX + toTrack * p1.w * 0.03, beamEndY);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      // Parede lateral de fechamento no início/fim do prédio dos boxes
+      if (segment.index === 18 || segment.index === 71) {
+        this.drawPoly(ctx, garIn1, segBottomY, garOut1, segBottomY, garOut1, segBottomY - hRoof1, garIn1, segBottomY - hPad1, '#1E293B');
+      }
+    }
+
     renderFinishArch(ctx, segment) {
       const p1 = segment.p1.screen;
       if (p1.w < 12 || p1.y <= INTERNAL_HEIGHT / 2) return;
@@ -228,9 +555,9 @@
         }
       }
 
-      if (p1.w > 34) {
+      if (p1.w > 14) {
         ctx.fillStyle = '#FFD700';
-        ctx.font = `bold ${Math.max(5, Math.floor(bannerH * 0.62))}px monospace`;
+        ctx.font = `bold ${Math.max(3, Math.floor(bannerH * 0.62))}px monospace`;
         ctx.textAlign = 'center';
         ctx.fillText('LH44 GRAND PRIX', p1.x, topY + bannerH * 0.73);
       }
@@ -313,11 +640,11 @@
       ctx.lineWidth = Math.max(1, p1.w * 0.012);
       ctx.strokeRect(leftX - postW, topY, spanW, bannerH);
 
-      if (p1.w > 26) {
+      if (p1.w > 12) {
         const isBrasil = (!def || def.id === 'brasil');
         const isNoite = (def && def.id === 'noite');
         ctx.fillStyle = isBrasil ? '#FEDD00' : (isNoite ? '#00E5FF' : '#FFFFFF');
-        ctx.font = `bold ${Math.max(5, Math.floor(bannerH * 0.58))}px monospace`;
+        ctx.font = `bold ${Math.max(3, Math.floor(bannerH * 0.58))}px monospace`;
         ctx.textAlign = 'center';
         const trackTitle = def ? (def.name || 'BRASIL GP') : 'BRASIL GP';
         const txt = isBrasil ? '★ LH44 BRASIL GP - INTERLAGOS ★' : (isNoite ? '★ CYBER CITY GP ★' : `★ GP ${trackTitle} ★`);
@@ -740,15 +1067,15 @@
         ctx.fillRect(-tw * 0.4, ty - size * 0.16, tw * 0.8, size * 0.14);
 
         // Linhas de classificação digital luminosa (LED verde/âmbar)
-        if (tw >= 14) {
+        if (tw >= 5) {
           ctx.fillStyle = isNight ? '#FFEB3B' : '#FFD700';
-          ctx.font = `bold ${Math.max(4.5, Math.floor(tw * 0.24))}px monospace`;
+          ctx.font = `bold ${Math.max(2.5, tw * 0.23).toFixed(1)}px monospace`;
           ctx.textAlign = 'center';
           ctx.fillText('LEADER', 0, ty + th * 0.16);
           const topDrivers = ['1 HAM', '2 VER', '3 LEC', '4 NOR', '5 ALO'];
           for (let d = 0; d < topDrivers.length; d++) {
             ctx.fillStyle = d === 0 ? (isNight ? '#34D399' : '#10B981') : (isNight ? '#FDE047' : '#FBBF24');
-            ctx.font = `bold ${Math.max(4, Math.floor(tw * 0.21))}px monospace`;
+            ctx.font = `bold ${Math.max(2.2, tw * 0.20).toFixed(1)}px monospace`;
             ctx.fillText(topDrivers[d], 0, ty + th * (0.30 + d * 0.13));
           }
         }
@@ -1057,7 +1384,7 @@
 
         // 2. Mastro tubular prateado esguio e alto
         ctx.strokeStyle = poleCol;
-        ctx.lineWidth = Math.max(2.0, size * 0.22);
+        ctx.lineWidth = Math.max(0.8, size * 0.22);
         ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(0, -sleeveH);
@@ -1086,9 +1413,9 @@
         ctx.fillRect(lampX - headW * 0.5, lampY - headH * 0.5, headW, headH * 0.28);
 
         if (isNight) {
-          // NOITE: LÂMPADA MODERADA NO TOPO (BRILHO SUAVE E DISCRETO) + FOCO NO ASFALTO MANTIDO
-          const bulbR = Math.max(1.8, size * 0.70);
-          const bulbGlow = ctx.createRadialGradient(lampX, lampY + size * 0.20, 0.4, lampX, lampY + size * 0.20, bulbR);
+          // NOITE: LÂMPADA PROPORCIONAL À DISTÂNCIA + FOCO NO ASFALTO MANTIDO
+          const bulbR = Math.max(0.9, size * 0.70);
+          const bulbGlow = ctx.createRadialGradient(lampX, lampY + size * 0.20, 0.2, lampX, lampY + size * 0.20, bulbR);
           bulbGlow.addColorStop(0, 'rgba(255, 255, 240, 0.70)');
           bulbGlow.addColorStop(0.40, 'rgba(255, 238, 120, 0.30)');
           bulbGlow.addColorStop(1, 'rgba(255, 215, 64, 0)');
@@ -1099,7 +1426,7 @@
 
           ctx.fillStyle = '#FFFDE7';
           ctx.beginPath();
-          ctx.arc(lampX, lampY + size * 0.20, Math.max(1.0, size * 0.20), 0, Math.PI * 2);
+          ctx.arc(lampX, lampY + size * 0.20, Math.max(0.4, size * 0.20), 0, Math.PI * 2);
           ctx.fill();
 
           // Feixe cônico volumétrico translúcido iluminando a pista (como no print)
@@ -1128,18 +1455,19 @@
           ctx.fill();
         } else if (isDusk) {
           // TARDE / CREPÚSCULO (EXATAMENTE O CLIMA DO PRINT DE REFERÊNCIA)
-          const bulbGlow = ctx.createRadialGradient(lampX, lampY + size * 0.22, 1, lampX, lampY + size * 0.22, Math.max(6, size * 1.8));
+          const duskR = Math.max(1.2, size * 1.5);
+          const bulbGlow = ctx.createRadialGradient(lampX, lampY + size * 0.22, 0.3, lampX, lampY + size * 0.22, duskR);
           bulbGlow.addColorStop(0, 'rgba(255, 238, 170, 0.95)');
           bulbGlow.addColorStop(0.45, 'rgba(255, 193, 7, 0.65)');
           bulbGlow.addColorStop(1, 'rgba(255, 160, 0, 0)');
           ctx.fillStyle = bulbGlow;
           ctx.beginPath();
-          ctx.arc(lampX, lampY + size * 0.22, Math.max(6, size * 1.8), 0, Math.PI * 2);
+          ctx.arc(lampX, lampY + size * 0.22, duskR, 0, Math.PI * 2);
           ctx.fill();
 
           ctx.fillStyle = '#FFF8E1';
           ctx.beginPath();
-          ctx.arc(lampX, lampY + size * 0.22, Math.max(2.2, size * 0.30), 0, Math.PI * 2);
+          ctx.arc(lampX, lampY + size * 0.22, Math.max(0.45, size * 0.25), 0, Math.PI * 2);
           ctx.fill();
 
           // Cone crepuscular
@@ -1162,10 +1490,10 @@
           ctx.ellipse(lampX, 0, size * 3.8, Math.max(2.2, size * 0.85), 0, 0, Math.PI * 2);
           ctx.fill();
         } else {
-          // DIA: Lâmpada desligada
+          // DIA: Lâmpada desligada proporcional à distância
           ctx.fillStyle = '#CBD5E1';
           ctx.beginPath();
-          ctx.arc(lampX, lampY + size * 0.22, Math.max(1.8, size * 0.25), 0, Math.PI * 2);
+          ctx.arc(lampX, lampY + size * 0.22, Math.max(0.4, size * 0.22), 0, Math.PI * 2);
           ctx.fill();
         }
       } else if (scenery.type === 'building') {
@@ -1254,14 +1582,14 @@
             ctx.fillRect(px, py, pw, ph * 0.18);
             ctx.fillStyle = '#FEDD00';
             ctx.fillRect(px, py + ph * 0.18, pw, ph * 0.10);
-            if (pw > 22) {
+            if (pw > 7) {
               ctx.fillStyle = '#FFFFFF';
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              ctx.font = `bold ${Math.max(4, Math.floor(ph * 0.26))}px monospace`;
+              ctx.font = `bold ${Math.max(2.5, ph * 0.26).toFixed(1)}px monospace`;
               ctx.fillText(def.name || stateCode, px + pw * 0.5, py + ph * 0.58);
               ctx.fillStyle = '#00E5FF';
-              ctx.font = `bold ${Math.max(3, Math.floor(ph * 0.18))}px monospace`;
+              ctx.font = `bold ${Math.max(2, ph * 0.18).toFixed(1)}px monospace`;
               ctx.fillText('CIRCUITO OFICIAL F1', px + pw * 0.5, py + ph * 0.83);
             }
           } else {
@@ -1276,14 +1604,14 @@
             ctx.fillRect(px, py, pw, ph);
             ctx.fillStyle = sp.accent;
             ctx.fillRect(px, py + ph * 0.78, pw, ph * 0.22);
-            if (pw > 22) {
+            if (pw > 7) {
               ctx.fillStyle = '#FFFFFF';
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              ctx.font = `bold ${Math.max(4, Math.floor(ph * 0.30))}px sans-serif`;
+              ctx.font = `bold ${Math.max(2.5, ph * 0.30).toFixed(1)}px sans-serif`;
               ctx.fillText(sp.title, px + pw * 0.5, py + ph * 0.40);
               ctx.fillStyle = '#0F172A';
-              ctx.font = `bold ${Math.max(3, Math.floor(ph * 0.16))}px monospace`;
+              ctx.font = `bold ${Math.max(2, ph * 0.16).toFixed(1)}px monospace`;
               ctx.fillText(sp.sub, px + pw * 0.5, py + ph * 0.89);
             }
           }
@@ -1308,9 +1636,9 @@
                 ctx.quadraticCurveTo(px + pw * 0.45, py + ph * 0.38 + r * (ph * 0.10), px, py + ph * 0.50 + r * (ph * 0.10));
                 ctx.fill();
               }
-              if (size >= 4) {
+              if (size >= 1.2) {
                 ctx.fillStyle = isNight ? '#FFFFFF' : '#F8FAFC';
-                ctx.font = `900 ${Math.max(7, Math.floor(size * 1.45))}px sans-serif`;
+                ctx.font = `900 ${Math.max(2.5, size * 1.45).toFixed(1)}px sans-serif`;
                 ctx.textAlign = 'left';
                 ctx.fillText('LH44', px + pw * 0.08, py + ph * 0.52);
               }
@@ -1324,9 +1652,9 @@
               ctx.fillRect(px, py, pw, ph);
               ctx.fillStyle = '#FFE082';
               ctx.fillRect(px, py + ph * 0.74, pw, ph * 0.14);
-              if (size >= 4) {
+              if (size >= 1.2) {
                 ctx.fillStyle = '#FFF';
-                ctx.font = `900 ${Math.max(7, Math.floor(size * 1.35))}px monospace`;
+                ctx.font = `900 ${Math.max(2.5, size * 1.35).toFixed(1)}px monospace`;
                 ctx.textAlign = 'center';
                 ctx.fillText('LH44', 0, py + ph * 0.54);
               }
@@ -1336,9 +1664,9 @@
               ctx.fillRect(px, py, pw, ph);
               ctx.fillStyle = '#FDD835';
               ctx.fillRect(px + pw * 0.05, py + ph * 0.16, pw * 0.90, ph * 0.10);
-              if (size >= 4) {
+              if (size >= 1.2) {
                 ctx.fillStyle = '#FFF';
-                ctx.font = `900 ${Math.max(7, Math.floor(size * 1.35))}px monospace`;
+                ctx.font = `900 ${Math.max(2.5, size * 1.35).toFixed(1)}px monospace`;
                 ctx.textAlign = 'center';
                 ctx.fillText('LH44', 0, py + ph * 0.65);
               }
@@ -1348,9 +1676,9 @@
               // "LH44" laranja montanha
               ctx.fillStyle = isNight ? '#9A3412' : '#E65100';
               ctx.fillRect(px, py, pw, ph);
-              if (size >= 4) {
+              if (size >= 1.2) {
                 ctx.fillStyle = '#FFF';
-                ctx.font = `900 ${Math.max(7, Math.floor(size * 1.35))}px sans-serif`;
+                ctx.font = `900 ${Math.max(2.5, size * 1.35).toFixed(1)}px sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.fillText('LH44', 0, py + ph * 0.58);
               }
@@ -1360,9 +1688,9 @@
               ctx.fillRect(px, py, pw, ph);
               ctx.fillStyle = '#F59E0B';
               ctx.fillRect(px, py + ph * 0.78, pw, ph * 0.12);
-              if (size >= 4) {
+              if (size >= 1.2) {
                 ctx.fillStyle = '#FFF';
-                ctx.font = `900 ${Math.max(7, Math.floor(size * 1.35))}px monospace`;
+                ctx.font = `900 ${Math.max(2.5, size * 1.35).toFixed(1)}px monospace`;
                 ctx.textAlign = 'center';
                 ctx.fillText('LH44', 0, py + ph * 0.56);
               }
@@ -1371,9 +1699,9 @@
             // "LH44" neon metrópole
             ctx.fillStyle = (billIdx % 2 === 0) ? (isNight ? '#17092C' : '#1E1238') : (isNight ? '#07161F' : '#0B1D28');
             ctx.fillRect(px, py, pw, ph);
-            if (size >= 4) {
+            if (size >= 1.2) {
               ctx.fillStyle = (billIdx % 2 === 0) ? '#FF007F' : '#00F0FF';
-              ctx.font = `900 ${Math.max(7, Math.floor(size * 1.4))}px sans-serif`;
+              ctx.font = `900 ${Math.max(2.5, size * 1.4).toFixed(1)}px sans-serif`;
               ctx.textAlign = 'center';
               ctx.fillText('LH44', 0, py + ph * 0.58);
             }

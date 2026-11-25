@@ -11,4 +11,40 @@ if (Array.isArray(TRACK_DEFINITIONS) && TRACK_DEFINITIONS.length > 4) {
     (a.stateCode || a.name || '').localeCompare(b.stateCode || b.name || '', 'pt-BR')
   );
   TRACK_DEFINITIONS.splice(0, TRACK_DEFINITIONS.length, ..._classicTracks, ..._stateTracks);
+TRACK_DEFINITIONS.push({
+  id: 'teste',
+  name: 'PISTA TESTE',
+  stateCode: 'TST',
+  flag: '🧪',
+  monument: 'ARENA DE TESTES',
+  themeTag: 'LABORATÓRIO 2.5D',
+  theme: 'DIA',
+  isTestTrack: true,
+  skyTop: '#124DA6',
+  skyMid: '#3782E0',
+  skyBottom: '#8CC8FF',
+  mountainColor: '#1A5930',
+  mountainFront: '#257B40',
+  defaultFlora: 'tree',
+  urbanLighting: true,
+  colors: {
+    roadDark: '#383C42',
+    roadLight: '#40454C',
+    grassDark: '#1D7622',
+    grassLight: '#248A2A',
+    rumbleDark: '#F8FAFC',
+    rumbleLight: '#D62828',
+    lane: '#FACC15'
+  },
+  sections: [
+    { length: 140, curve: 0,    hill: 0,    pitWall: true, timingTower: true, overheadBridge: true },
+    { length: 70,  curve: -2.4, hill: -200, scenery: 'sign_left',  guardrail: 'both' },
+    { length: 90,  curve: 0,    hill: 300,  scenery: 'tree' },
+    { length: 80,  curve: 2.2,  hill: 200,  scenery: 'sign_right', guardrail: 'both' },
+    { length: 110, curve: 0,    hill: -150, scenery: 'streetlamp' },
+    { length: 90,  curve: -2.0, hill: -150, scenery: 'sign_left',  guardrail: 'both' },
+    { length: 100, curve: 0,    hill: 0,    scenery: 'billboard' },
+    { length: 85,  curve: -1.8, hill: 0,    guardrail: 'both' }
+  ]
+});
 }

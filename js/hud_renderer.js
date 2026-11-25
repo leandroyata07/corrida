@@ -854,13 +854,13 @@
           ctx.fillText(warnTxt, INTERNAL_WIDTH / 2, pillY + 9);
         }
 
-        // Indicador / Barra de Progresso do Pit Lane Estratégico na Reta Principal
+        // Indicador / Barra de Progresso do Pit Lane (aparece um pouco antes da entrada e some ao passar direto)
         const curSeg = segs[curSegIdx];
-        let pitHintSeg = (curSeg && curSeg.pitWall) ? curSeg : null;
+        let pitHintSeg = (curSeg && curSeg.pitEntry) ? curSeg : null;
         if (!pitHintSeg) {
-          for (let la = 1; la <= 28; la++) {
+          for (let la = 1; la <= 65; la++) {
             const laSeg = segs[(curSegIdx + la) % segs.length];
-            if (laSeg && laSeg.pitWall) {
+            if (laSeg && laSeg.pitEntry) {
               pitHintSeg = laSeg;
               break;
             }
@@ -905,10 +905,10 @@
             ctx.fillText(needNitro ? `⛽ PIT LANE ABERTO (${dirLabel})` : `PIT ABERTO (${dirLabel}) • NITRO 3/3`, INTERNAL_WIDTH / 2, by + 9);
           }
 
-          // Seta direcional animada no lado correspondente indicando a entrada do Pit Lane
+          // Seta direcional animada no lado correspondente indicando a entrada do Pit Lane (abaixo dos painéis laterais)
           const arrowPulse = Math.sin(performance.now() / 110) * 3 * pitSide;
           const ax = (pitSide > 0 ? (INTERNAL_WIDTH - 46) : 46) + arrowPulse;
-          const ay = Math.round(INTERNAL_HEIGHT * 0.46);
+          const ay = Math.round(INTERNAL_HEIGHT * 0.56);
           ctx.fillStyle = 'rgba(6, 16, 28, 0.82)';
           ctx.fillRect(ax - 19, ay - 11, 38, 22);
           ctx.strokeStyle = needNitro ? '#00FF88' : '#38BDF8';
@@ -930,6 +930,24 @@
           }
           ctx.closePath();
           ctx.fill();
+        }
+
+        // Aviso de Bandeira Azul (Retardatário à frente)
+        if (this.blueFlagActive && !lapBannerShowing && !this.player.inPitLane) {
+          const bfBlink = (Math.sin(performance.now() / 120) + 1) * 0.5;
+          const bfw = 136;
+          const bfh = 12;
+          const bfx = Math.round((INTERNAL_WIDTH - bfw) / 2);
+          const bfy = topY + 51;
+          ctx.fillStyle = 'rgba(2, 32, 68, 0.88)';
+          ctx.fillRect(bfx, bfy, bfw, bfh);
+          ctx.strokeStyle = bfBlink > 0.45 ? '#38BDF8' : '#0284C7';
+          ctx.lineWidth = 1.1;
+          ctx.strokeRect(bfx, bfy, bfw, bfh);
+          ctx.textAlign = 'center';
+          ctx.fillStyle = bfBlink > 0.45 ? '#E0F2FE' : '#38BDF8';
+          ctx.font = 'bold 6px monospace';
+          ctx.fillText('🟦 BANDEIRA AZUL • RETARDATÁRIO', INTERNAL_WIDTH / 2, bfy + 8.3);
         }
       }
 
@@ -1033,8 +1051,12 @@
       const W = INTERNAL_WIDTH;
       const H = INTERNAL_HEIGHT;
 
-      // Row 0: 4 Circuitos Clássicos destacados (Interlagos, Serra, Metrópole, Sertão)
-      const classicCount = 4;
+      // Row 0: 4 Circuitos Clássicos (+ Pista TESTE fora de campeonatos)
+      const classicIndices = [0, 1, 2, 3];
+      const allowTestTrack = (this.state !== 'CUSTOM_SCHEDULE_SELECT' && this.gameMode !== 'CHAMPIONSHIP');
+      const testTrackIdx = allowTestTrack ? TRACK_DEFINITIONS.findIndex(t => t && t.isTestTrack) : -1;
+      if (testTrackIdx !== -1) classicIndices.push(testTrackIdx);
+      const classicCount = classicIndices.length;
       const classicGapX = touchSafe ? 3 : 4;
       const maxGridW = touchSafe ? Math.min(W - 14, 306) : Math.min(W - 18, 314);
       const classicW = Math.floor((maxGridW - (classicCount - 1) * classicGapX) / classicCount);
@@ -1044,13 +1066,13 @@
       const classicY0 = touchSafe ? 13 : 14;
 
       const chips = [];
-      for (let i = 0; i < 4; i++) {
+      for (let ci = 0; ci < classicIndices.length; ci++) {
         chips.push({
-          x: classicX0 + i * (classicW + classicGapX),
+          x: classicX0 + ci * (classicW + classicGapX),
           y: classicY0,
           w: classicW,
           h: classicH,
-          i: i,
+          i: classicIndices[ci],
           isClassic: true
         });
       }
@@ -1067,6 +1089,7 @@
       const capGridY = classicY0 + classicH + (touchSafe ? 2.5 : 3);
 
       for (let i = 4; i < TRACK_DEFINITIONS.length; i++) {
+        if (TRACK_DEFINITIONS[i] && TRACK_DEFINITIONS[i].isTestTrack) continue;
         const capIdx = i - 4;
         const col = capIdx % cols;
         const row = Math.floor(capIdx / cols);
@@ -1094,7 +1117,7 @@
       const btnPrev = { x: bX - arrowW - 2, y: bY + (bH - arrowH) / 2, w: arrowW, h: arrowH };
       const btnNext = { x: bX + bW + 2, y: bY + (bH - arrowH) / 2, w: arrowW, h: arrowH };
 
-      const btnW = touchSafe ? 92 : 108;
+      const btnW = touchSafe ? 84 : 96;
       const btnH = touchSafe ? 17 : 19;
       const btnY = bY + bH + (touchSafe ? 5 : 6);
       const btnBack = {
@@ -1103,13 +1126,20 @@
         w: btnW,
         h: btnH
       };
+      const mirrorW = touchSafe ? 76 : 84;
+      const btnMirror = (this.gameMode !== 'CHAMPIONSHIP') ? {
+        x: Math.round(bX + (bW - mirrorW) / 2),
+        y: btnY,
+        w: mirrorW,
+        h: btnH
+      } : null;
       const btnConfirm = {
         x: Math.round(bX + bW - btnW),
         y: btnY,
         w: btnW,
         h: btnH
       };
-      return { touchSafe, bW, bH, bX, bY, chips, btnPrev, btnNext, btnBack, btnConfirm };
+      return { touchSafe, bW, bH, bX, bY, chips, btnPrev, btnNext, btnBack, btnMirror, btnConfirm };
     }
 
     // Geometria compartilhada da Garagem com seletor dos 20 carros em 2 fileiras x 10 colunas

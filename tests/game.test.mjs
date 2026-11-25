@@ -107,7 +107,7 @@ test('TrackBuilder builds all 31 tracks cleanly with valid segments and synced m
     }
     ({ totalTracks: TRACK_DEFINITIONS.length, issues });
   `, ctx);
-  assert.equal(report.totalTracks, 31);
+  assert.equal(report.totalTracks, 32);
   assert.equal(report.issues.length, 0, JSON.stringify(report.issues));
 });
 

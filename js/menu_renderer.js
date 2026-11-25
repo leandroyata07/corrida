@@ -6,75 +6,71 @@
   class MenuRenderer {
     getSetupLayout() {
       const touchSafe = this.input.touchControlsVisible;
-      const cw = touchSafe ? 66 : 74;
-      const ch = touchSafe ? 8.2 : 8.8;
-      const gx = touchSafe ? 2.5 : 3;
-      const gy = touchSafe ? 2.0 : 2.2;
-      const startX = Math.round(INTERNAL_WIDTH / 2 - (4 * cw + 3 * gx) / 2);
-      const y1 = touchSafe ? 31 : 32;
-      const conds = [];
-      for (let i = 0; i < ENV_CONDITIONS.length; i++) {
-        const col = i % 4;
-        const row = Math.floor(i / 4);
-        conds.push({ x: startX + col * (cw + gx), y: y1 + row * (ch + gy), w: cw, h: ch, i });
-      }
-      const colsSongs = (SONGS.length > 8) ? 3 : 2;
-      const sw = (colsSongs === 3) ? (touchSafe ? 96 : 112) : (touchSafe ? 136 : 152);
-      const sh = (colsSongs === 3) ? (touchSafe ? 7.6 : 8.2) : (touchSafe ? 8.2 : 8.5);
-      const sgx = (colsSongs === 3) ? 3.0 : (touchSafe ? 3.5 : 4);
-      const sgy = (colsSongs === 3) ? 1.4 : (touchSafe ? 2.0 : 2.2);
-      const sStartX = Math.round(INTERNAL_WIDTH / 2 - (colsSongs * sw + (colsSongs - 1) * sgx) / 2);
-      const y2 = touchSafe ? 58 : 61;
-      const songs = [];
-      for (let i = 0; i < SONGS.length; i++) {
-        const col = i % colsSongs;
-        const row = Math.floor(i / colsSongs);
-        songs.push({ x: sStartX + col * (sw + sgx), y: y2 + row * (sh + sgy), w: sw, h: sh, i });
-      }
+      const boxW = touchSafe ? 304 : 332;
+      const boxX = Math.round(INTERNAL_WIDTH / 2 - boxW / 2);
+
+      // Linha 1: HORÁRIO (3 colunas alinhadas: DIA, TARDE, NOITE)
+      const timeIds = ['DIA', 'TARDE', 'NOITE'];
+      const cg = 5;
+      const cw3 = (boxW - cg * 2) / 3;
+      const th = touchSafe ? 13 : 14;
+      const yTime = touchSafe ? 42 : 44;
+      const timeBtns = timeIds.map((id, i) => ({
+        x: boxX + i * (cw3 + cg),
+        y: yTime,
+        w: cw3,
+        h: th,
+        id
+      }));
+
+      // Linha 2: CLIMA (3 colunas idênticas: LIMPO, CHUVA, NEVE)
+      const yWeather = touchSafe ? 65 : 68;
+      const weatherIds = ['LIMPO', 'CHUVA', 'NEVE'];
+      const weatherBtns = weatherIds.map((id, i) => ({
+        x: boxX + i * (cw3 + cg),
+        y: yWeather,
+        w: cw3,
+        h: th,
+        id
+      }));
+
+      // Linha 2B: MODO DINÂMICO (Horário + Clima) largura total alinhada
+      const yDyn = touchSafe ? 82 : 85;
+      const dynBtn = { x: boxX, y: yDyn, w: boxW, h: touchSafe ? 12 : 13 };
+
+      // Linha 3: DECK TOCA-FITAS K7 RETRÔ (Trilha Sonora)
+      const yK7 = touchSafe ? 103 : 107;
+      const k7H = touchSafe ? 40 : 42;
+      const k7Box = { x: boxX, y: yK7, w: boxW, h: k7H };
+      const k7BtnW = touchSafe ? 38 : 42;
+      const k7PrevBtn = { x: boxX + 5, y: yK7 + 6, w: k7BtnW, h: k7H - 12 };
+      const k7NextBtn = { x: boxX + boxW - k7BtnW - 5, y: yK7 + 6, w: k7BtnW, h: k7H - 12 };
+
+      // Linha 4: Botões de ação (VOLTAR / QUALY / CONFIRMAR)
       const showQualy = (this.gameMode !== 'TIME_TRIAL');
-      const btnW = touchSafe ? (showQualy ? 72 : 88) : (showQualy ? 80 : 98);
-      const qualyW = showQualy ? (touchSafe ? 88 : 102) : 0;
-      const startW = touchSafe ? (showQualy ? 96 : 116) : (showQualy ? 108 : 130);
+      const btnW = touchSafe ? (showQualy ? 76 : 96) : (showQualy ? 84 : 108);
+      const qualyW = showQualy ? (touchSafe ? 96 : 110) : 0;
+      const startW = showQualy ? (boxW - btnW - qualyW - 12) : (boxW - btnW - 10);
       const btnH = touchSafe ? 15 : 16;
-      const btnY = touchSafe ? 142 : 147;
-      const gapB = 8;
-      const totalBtnsW = showQualy ? (btnW + gapB + qualyW + gapB + startW) : (btnW + 12 + startW);
-      const btnStartX = Math.round(INTERNAL_WIDTH / 2 - totalBtnsW / 2);
-      const btnBack = {
-        x: btnStartX,
-        y: btnY,
-        w: btnW,
-        h: btnH
-      };
-      const qualyBtn = showQualy ? {
-        x: btnStartX + btnW + gapB,
-        y: btnY,
-        w: qualyW,
-        h: btnH
-      } : null;
-      const startBtn = {
-        x: showQualy ? (btnStartX + btnW + gapB + qualyW + gapB) : (btnStartX + btnW + 12),
-        y: btnY,
-        w: startW,
-        h: btnH
-      };
-      const mirrorBtn = (this.gameMode !== 'CHAMPIONSHIP') ? {
-        x: Math.round(INTERNAL_WIDTH / 2 + (touchSafe ? 78 : 92)),
-        y: (touchSafe ? 21 : 22) - 7,
-        w: touchSafe ? 62 : 70,
-        h: 10
-      } : null;
+      const btnY = touchSafe ? 150 : 156;
+      const gapB = showQualy ? 6 : 10;
+      const btnBack = { x: boxX, y: btnY, w: btnW, h: btnH };
+      const qualyBtn = showQualy ? { x: boxX + btnW + gapB, y: btnY, w: qualyW, h: btnH } : null;
+      const startBtn = { x: boxX + (showQualy ? (btnW + gapB + qualyW + gapB) : (btnW + gapB)), y: btnY, w: startW, h: btnH };
+
       return {
-        touchSafe, conds, songs, btnBack, qualyBtn, startBtn, mirrorBtn,
-        titleY: touchSafe ? 13 : 14,
-        subY: touchSafe ? 21 : 22,
-        label1Y: touchSafe ? 28 : 29,
-        label2Y: touchSafe ? 54 : 57,
-        descY: touchSafe ? 127 : 132,
-        gridY: touchSafe ? 129 : 134,
-        gridH: touchSafe ? 10.5 : 11,
-        gridW: touchSafe ? 280 : 308,
-        hintY: touchSafe ? 163 : 170
+        touchSafe, boxX, boxW, timeBtns, weatherBtns, dynBtn, mirrorBtn: null,
+        k7Box, k7PrevBtn, k7NextBtn, btnBack, qualyBtn, startBtn,
+        conds: [], songs: [],
+        titleY: touchSafe ? 21 : 23,
+        subY: touchSafe ? 30 : 32,
+        label1Y: touchSafe ? 39 : 41,
+        label2Y: touchSafe ? 61 : 64,
+        label3Y: touchSafe ? 99 : 103,
+        gridY: touchSafe ? 139 : 144,
+        gridH: touchSafe ? 9 : 10,
+        gridW: boxW,
+        hintY: touchSafe ? 172 : 181
       };
     }
 
@@ -1231,6 +1227,19 @@
       if (L.btnPrev) drawSideArrow(L.btnPrev, true);
       if (L.btnNext) drawSideArrow(L.btnNext, false);
 
+      // Botão central: NORMAL / ESPELHO (apenas fora do Campeonato)
+      const btnM = L.btnMirror;
+      if (btnM) {
+        ctx.fillStyle = this.mirrorTrack ? '#7C3AED' : '#0E1626';
+        ctx.fillRect(btnM.x, btnM.y, btnM.w, btnM.h);
+        ctx.strokeStyle = this.mirrorTrack ? '#FFFFFF' : '#00E5FF';
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(btnM.x, btnM.y, btnM.w, btnM.h);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = touchSafe ? 'bold 6.4px monospace' : 'bold 7.2px monospace';
+        ctx.fillText(this.mirrorTrack ? '⇄ ESPELHO' : '⇄ NORMAL', btnM.x + btnM.w / 2, btnM.y + btnM.h / 2 + 2.5);
+      }
+
       // Botões inferiores: VOLTAR e ESCOLHER CARRO
       const btnB = L.btnBack;
       if (btnB) {
@@ -1762,76 +1771,208 @@
       ctx.save();
       ctx.textAlign = 'center';
       ctx.fillStyle = '#00E5FF';
-      ctx.font = touchSafe ? 'bold 9px monospace' : 'bold 12px monospace';
+      ctx.font = touchSafe ? 'bold 8.5px monospace' : 'bold 10.5px monospace';
       const def = TRACK_DEFINITIONS[this.trackIndex];
       const totalStages = (this.seasonSchedule && this.seasonSchedule.length) ? this.seasonSchedule.length : TRACK_DEFINITIONS.length;
       const modeBadge = (this.gameMode === 'QUICK_RACE')
-        ? '⚡ CORRIDA RÁPIDA'
-        : `🏆 CAMPEONATO${this.customChampionship ? ' CUSTOM' : ' F1'} (${(this.seasonStage || 0) + 1}/${totalStages})`;
+        ? 'CORRIDA RÁPIDA'
+        : `CAMPEONATO${this.customChampionship ? ' CUSTOM' : ' F1'} (${(this.seasonStage || 0) + 1}/${totalStages})`;
       ctx.fillText(`PREPARAR — ${modeBadge}`, INTERNAL_WIDTH / 2, L.titleY);
 
       ctx.fillStyle = '#FFD700';
-      ctx.font = touchSafe ? 'bold 6px monospace' : 'bold 7px monospace';
+      ctx.font = touchSafe ? 'bold 6.2px monospace' : 'bold 7.2px monospace';
       const mirrorTag = (this.gameMode !== 'CHAMPIONSHIP' && this.mirrorTrack) ? ' [ESPELHO]' : '';
-      ctx.fillText(`CIRCUITO: ${def.name.toUpperCase()}${mirrorTag} (3 VOLTAS)`, INTERNAL_WIDTH / 2 - (L.mirrorBtn ? 22 : 0), L.subY);
+      ctx.fillText(`CIRCUITO: ${def.name.toUpperCase()}${mirrorTag} (3 VOLTAS)`, INTERNAL_WIDTH / 2, L.subY);
 
-      if (L.mirrorBtn) {
-        const mb = L.mirrorBtn;
-        ctx.fillStyle = this.mirrorTrack ? '#7C3AED' : 'rgba(16, 24, 38, 0.92)';
-        ctx.fillRect(mb.x, mb.y, mb.w, mb.h);
-        ctx.strokeStyle = this.mirrorTrack ? '#DDD6FE' : '#00E5FF';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(mb.x, mb.y, mb.w, mb.h);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 5.4px monospace';
-        ctx.fillText(this.mirrorTrack ? '⇄ ESPELHO' : '⇄ NORMAL', mb.x + mb.w / 2, mb.y + mb.h / 2 + 2);
+      const envParts = this._getEnvParts(this.envCond);
+      const isDyn = (this.envCond === 'DINAMICO');
+
+      // Grupo 0: HORÁRIO (3 colunas alinhadas)
+      ctx.textAlign = 'left';
+      ctx.font = touchSafe ? 'bold 6.2px monospace' : 'bold 7px monospace';
+      ctx.fillStyle = this.setupGroup === 0 ? '#FFD700' : '#94A3B8';
+      ctx.fillText((this.setupGroup === 0 ? '▶ ' : '') + 'HORÁRIO', L.boxX, L.label1Y);
+
+      const timeMeta = {
+        DIA: { icon: '☀', label: 'DIA' },
+        TARDE: { icon: '🌇', label: 'TARDE' },
+        NOITE: { icon: '🌙', label: 'NOITE' }
+      };
+      ctx.textAlign = 'center';
+      for (let k = 0; k < L.timeBtns.length; k++) {
+        const b = L.timeBtns[k];
+        const info = timeMeta[b.id];
+        const selected = !isDyn && (envParts.time === b.id);
+        ctx.fillStyle = isDyn
+          ? 'rgba(14, 22, 38, 0.55)'
+          : (selected ? (this.setupGroup === 0 ? '#FFD700' : 'rgba(255, 215, 0, 0.35)') : '#0E1626');
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+        ctx.strokeStyle = selected ? '#FFFFFF' : (isDyn ? '#1E293B' : '#1E3A5F');
+        ctx.lineWidth = selected ? 1.6 : 1;
+        ctx.strokeRect(b.x, b.y, b.w, b.h);
+        ctx.fillStyle = isDyn ? '#64748B' : (selected ? (this.setupGroup === 0 ? '#041019' : '#FFFFFF') : '#CBD5E1');
+        ctx.font = touchSafe ? 'bold 6px monospace' : 'bold 6.8px monospace';
+        ctx.fillText(`${info.icon} ${info.label}`, b.x + b.w / 2, b.y + b.h / 2 + 2.3);
       }
 
-      // Grupo 1: horario / clima
-      ctx.font = touchSafe ? 'bold 7px monospace' : 'bold 8px monospace';
-      ctx.fillStyle = this.setupGroup === 0 ? '#FFD700' : '#90A4AE';
-      ctx.fillText((this.setupGroup === 0 ? '\u25B6 ' : '') + 'HOR\u00C1RIO / CLIMA', INTERNAL_WIDTH / 2, L.label1Y);
-      const chipFont = touchSafe ? 'bold 6px monospace' : 'bold 7px monospace';
-      for (let k = 0; k < L.conds.length; k++) {
-        const c = L.conds[k];
-        const info = ENV_CONDITIONS[c.i];
-        const selected = (info.id === this.envCond);
-        ctx.fillStyle = selected
-          ? (this.setupGroup === 0 ? '#FFD700' : 'rgba(255, 215, 0, 0.42)')
-          : 'rgba(16, 24, 38, 0.92)';
-        ctx.fillRect(c.x, c.y, c.w, c.h);
-        ctx.strokeStyle = selected ? '#FFFFFF' : 'rgba(0, 229, 255, 0.35)';
-        ctx.lineWidth = selected ? 1.8 : 1;
-        ctx.strokeRect(c.x, c.y, c.w, c.h);
-        ctx.fillStyle = selected
-          ? (this.setupGroup === 0 ? '#041019' : '#FFFFFF')
-          : '#B0BEC5';
-        ctx.font = chipFont;
-        ctx.fillText(info.icon + ' ' + info.label, c.x + c.w / 2, c.y + c.h / 2 + 2.4);
+      // Grupo 1: CLIMA (3 colunas idênticas alinhadas com HORÁRIO)
+      ctx.textAlign = 'left';
+      ctx.font = touchSafe ? 'bold 6.2px monospace' : 'bold 7px monospace';
+      ctx.fillStyle = this.setupGroup === 1 ? '#FFD700' : '#94A3B8';
+      ctx.fillText((this.setupGroup === 1 ? '▶ ' : '') + 'CLIMA', L.boxX, L.label2Y);
+
+      const weatherMeta = {
+        LIMPO: { icon: '🌤', label: 'LIMPO' },
+        CHUVA: { icon: '🌧', label: 'CHUVA' },
+        NEVE: { icon: '❄', label: 'NEVE' }
+      };
+      ctx.textAlign = 'center';
+      for (let k = 0; k < L.weatherBtns.length; k++) {
+        const b = L.weatherBtns[k];
+        const info = weatherMeta[b.id];
+        const selected = !isDyn && (envParts.weather === b.id);
+        ctx.fillStyle = isDyn
+          ? 'rgba(14, 22, 38, 0.55)'
+          : (selected ? (this.setupGroup === 1 ? '#FFD700' : 'rgba(255, 215, 0, 0.35)') : '#0E1626');
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+        ctx.strokeStyle = selected ? '#FFFFFF' : (isDyn ? '#1E293B' : '#1E3A5F');
+        ctx.lineWidth = selected ? 1.6 : 1;
+        ctx.strokeRect(b.x, b.y, b.w, b.h);
+        ctx.fillStyle = isDyn ? '#64748B' : (selected ? (this.setupGroup === 1 ? '#041019' : '#FFFFFF') : '#CBD5E1');
+        ctx.font = touchSafe ? 'bold 6px monospace' : 'bold 6.8px monospace';
+        ctx.fillText(`${info.icon} ${info.label}`, b.x + b.w / 2, b.y + b.h / 2 + 2.3);
       }
 
-      // Grupo 2: musica
-      ctx.font = touchSafe ? 'bold 7px monospace' : 'bold 8px monospace';
-      ctx.fillStyle = this.setupGroup === 1 ? '#FFD700' : '#90A4AE';
-      ctx.fillText((this.setupGroup === 1 ? '\u25B6 ' : '') + 'TRILHA SONORA', INTERNAL_WIDTH / 2, L.label2Y);
+      // Grupo 2: MODO DINÂMICO (Horário + Clima combinados)
+      const db = L.dynBtn;
+      ctx.fillStyle = isDyn
+        ? (this.setupGroup === 2 ? '#FFD700' : '#0077B6')
+        : (this.setupGroup === 2 ? '#1E293B' : '#0E1626');
+      ctx.fillRect(db.x, db.y, db.w, db.h);
+      ctx.strokeStyle = (this.setupGroup === 2 || isDyn) ? '#FFFFFF' : '#1E3A5F';
+      ctx.lineWidth = (this.setupGroup === 2 || isDyn) ? 1.5 : 1;
+      ctx.strokeRect(db.x, db.y, db.w, db.h);
+      ctx.fillStyle = (isDyn && this.setupGroup === 2) ? '#041019' : '#FFFFFF';
+      ctx.font = touchSafe ? 'bold 5.8px monospace' : 'bold 6.4px monospace';
+      ctx.fillText('🔄 MODO DINÂMICO (MUDA HORÁRIO + CLIMA NA CORRIDA)', db.x + db.w / 2, db.y + db.h / 2 + 2.2);
+
+      // Grupo 3: DECK TOCA-FITAS K7 AUTOMOTIVO ANOS 90
+      ctx.textAlign = 'left';
+      ctx.font = touchSafe ? 'bold 6.2px monospace' : 'bold 7px monospace';
+      ctx.fillStyle = this.setupGroup === 3 ? '#FFD700' : '#94A3B8';
+      ctx.fillText((this.setupGroup === 3 ? '▶ ' : '') + 'TOCA-FITAS K7 (TRILHA SONORA)', L.boxX, L.label3Y);
+
       const curSongIdx = (typeof this.songIndex === 'number' && this.songIndex >= 0 && this.songIndex < SONGS.length) ? this.songIndex : 0;
-      const songChipFont = touchSafe ? 'bold 5.0px monospace' : 'bold 5.6px monospace';
-      for (let k = 0; k < L.songs.length; k++) {
-        const c = L.songs[k];
-        const selected = (c.i === curSongIdx);
-        ctx.fillStyle = selected
-          ? (this.setupGroup === 1 ? '#FFD700' : 'rgba(255, 215, 0, 0.28)')
-          : 'rgba(16, 24, 38, 0.92)';
-        ctx.fillRect(c.x, c.y, c.w, c.h);
-        ctx.strokeStyle = selected ? '#FFFFFF' : 'rgba(0, 229, 255, 0.35)';
-        ctx.lineWidth = selected ? 1.8 : 1;
-        ctx.strokeRect(c.x, c.y, c.w, c.h);
-        ctx.fillStyle = selected
-          ? (this.setupGroup === 1 ? '#041019' : '#FFFFFF')
-          : '#B0BEC5';
-        ctx.font = songChipFont;
-        ctx.fillText('\u266A ' + SONGS[c.i].name, c.x + c.w / 2, c.y + c.h / 2 + 2.2);
+      const curSong = SONGS[curSongIdx] || SONGS[0];
+      const kb = L.k7Box;
+      // Chassi metálico chanfrado
+      ctx.fillStyle = '#0F172A';
+      ctx.fillRect(kb.x, kb.y, kb.w, kb.h);
+      ctx.fillStyle = '#1E293B';
+      ctx.fillRect(kb.x + 2, kb.y + 2, kb.w - 4, 3);
+      ctx.strokeStyle = this.setupGroup === 3 ? '#FFD700' : '#00E5FF';
+      ctx.lineWidth = this.setupGroup === 3 ? 1.8 : 1.1;
+      ctx.strokeRect(kb.x, kb.y, kb.w, kb.h);
+
+      // Botões físicos ⏮ ANT e PRÓX ⏭ com relevo 3D retrô
+      ctx.textAlign = 'center';
+      const drawK7Btn = (btn, label) => {
+        ctx.fillStyle = '#1E293B';
+        ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(btn.x + 1, btn.y + 1, btn.w - 2, 2);
+        ctx.strokeStyle = this.setupGroup === 3 ? '#FFD700' : '#475569';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(btn.x, btn.y, btn.w, btn.h);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = touchSafe ? 'bold 6.2px monospace' : 'bold 6.8px monospace';
+        ctx.fillText(label, btn.x + btn.w / 2, btn.y + btn.h / 2 + 2.3);
+      };
+      drawK7Btn(L.k7PrevBtn, '⏮ ANT');
+      drawK7Btn(L.k7NextBtn, 'PRÓX ⏭');
+
+      // Carcaça detalhada da Fita K7
+      const cassX = L.k7PrevBtn.x + L.k7PrevBtn.w + 6;
+      const cassW = L.k7NextBtn.x - cassX - 6;
+      const cassY = kb.y + 4;
+      const cassH = kb.h - 8;
+      ctx.fillStyle = '#0B1120';
+      ctx.fillRect(cassX, cassY, cassW, cassH);
+      ctx.strokeStyle = '#64748B';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(cassX, cassY, cassW, cassH);
+
+      // 4 Parafusos nos cantos da fita K7
+      ctx.fillStyle = '#94A3B8';
+      ctx.fillRect(cassX + 2, cassY + 2, 2, 2);
+      ctx.fillRect(cassX + cassW - 4, cassY + 2, 2, 2);
+      ctx.fillRect(cassX + 2, cassY + cassH - 4, 2, 2);
+      ctx.fillRect(cassX + cassW - 4, cassY + cassH - 4, 2, 2);
+
+      // Etiqueta da fita (sem [SYNTH] ou [MP3]) + LED PLAY
+      ctx.fillStyle = '#FEF3C7';
+      ctx.fillRect(cassX + 6, cassY + 2.5, cassW - 12, 11);
+      ctx.fillStyle = '#F97316';
+      ctx.fillRect(cassX + 6, cassY + 2.5, cassW - 12, 2.2);
+      const trackNumStr = String(curSongIdx + 1).padStart(2, '0');
+      const totalSongStr = String(SONGS.length).padStart(2, '0');
+      ctx.fillStyle = '#0F172A';
+      ctx.font = touchSafe ? 'bold 5.8px monospace' : 'bold 6.4px monospace';
+      ctx.fillText(`♪ ${trackNumStr}/${totalSongStr} · ${curSong.name}`, cassX + cassW / 2, cassY + 10.6);
+
+      // Janela central transparente com fita magnética marrom e 2 carretéis dentados
+      const winX = cassX + 14;
+      const winW = cassW - 28;
+      const winY = cassY + 15;
+      const winH = 14;
+      ctx.fillStyle = '#04070E';
+      ctx.fillRect(winX, winY, winW, winH);
+      ctx.strokeStyle = '#475569';
+      ctx.strokeRect(winX, winY, winW, winH);
+
+      const reelY = winY + winH / 2;
+      const reelOffX = Math.min(48, winW * 0.28);
+      const isPlayingNow = !!(this.audio && this.audio.musicPlaying);
+      // Fita magnética marrom conectando os 2 carretéis
+      ctx.fillStyle = '#78350F';
+      ctx.fillRect(cassX + cassW / 2 - reelOffX, reelY - 1.5, reelOffX * 2, 3);
+
+      const spinA = isPlayingNow ? (now * 0.0055) : 0.4;
+      const drawReel = (rx) => {
+        ctx.beginPath();
+        ctx.arc(rx, reelY, 5.6, 0, Math.PI * 2);
+        ctx.fillStyle = '#1E293B';
+        ctx.fill();
+        ctx.strokeStyle = '#E2E8F0';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        for (let sp = 0; sp < 4; sp++) {
+          const ang = spinA + (sp * Math.PI) / 2;
+          ctx.beginPath();
+          ctx.moveTo(rx, reelY);
+          ctx.lineTo(rx + Math.cos(ang) * 4.4, reelY + Math.sin(ang) * 4.4);
+          ctx.strokeStyle = '#FFD700';
+          ctx.stroke();
+        }
+      };
+      drawReel(cassX + cassW / 2 - reelOffX);
+      drawReel(cassX + cassW / 2 + reelOffX);
+
+      // Visor central LCD + VU Estéreo animado + LED PLAY
+      const vuW = 44;
+      const vuX = Math.round(cassX + cassW / 2 - vuW / 2);
+      ctx.fillStyle = '#062018';
+      ctx.fillRect(vuX, winY + 2, vuW, winH - 4);
+      for (let b = 0; b < 6; b++) {
+        const amp = isPlayingNow ? (0.25 + 0.75 * Math.abs(Math.sin(now * 0.009 + b * 1.2))) : 0.2;
+        const bh = Math.round(amp * (winH - 6));
+        ctx.fillStyle = b > 3 ? '#F59E0B' : '#00E676';
+        ctx.fillRect(vuX + 4 + b * 6, winY + winH - 3 - bh, 4, bh);
       }
+
+      // Trapézio inferior característico da fita K7
+      ctx.fillStyle = '#1E293B';
+      ctx.fillRect(cassX + 20, cassY + cassH - 3, cassW - 40, 3);
 
       // Banner Informativo do Grid de Largada (ou Resultado do Qualy!)
       if (this.qualifiedGridPos > 0) {
@@ -1874,7 +2015,7 @@
 
       // Botões ◀ VOLTAR, ⏱ QUALY e ▶ INICIAR CORRIDA
       const blink = Math.floor(now / 350) % 2 === 0;
-      const activeAct = (this.setupGroup === 2) ? (this.setupActionIdx !== undefined ? this.setupActionIdx : 2) : -1;
+      const activeAct = (this.setupGroup === 4) ? (this.setupActionIdx !== undefined ? this.setupActionIdx : 2) : -1;
       const btnB = L.btnBack;
       if (btnB) {
         const isFoc = (activeAct === 0);
@@ -2705,16 +2846,37 @@
       const bestStr = this.bestLapTime > 0 ? this.formatTime(this.bestLapTime) : '--:--.--';
 
       ctx.textAlign = 'center';
-      ctx.font = 'bold 7.4px monospace';
+      ctx.font = 'bold 7.2px monospace';
       ctx.fillStyle = pRank <= 3 ? '#69F0AE' : '#FFD700';
-      ctx.fillText(`SEU TEMPO: ${this.formatTime(pTime)}  |  MELHOR VOLTA: ${bestStr}  |  ${pRank}º LUGAR`, INTERNAL_WIDTH / 2, 177);
+      ctx.fillText(`SEU TEMPO: ${this.formatTime(pTime)}  |  MELHOR VOLTA: ${bestStr}  |  ${pRank}º LUGAR`, INTERNAL_WIDTH / 2, 174);
+
+      // Faixa de Mini-Telemetria da Corrida
+      const telW = (rightX + colW) - leftX;
+      const telY = 179;
+      const telH = 12;
+      ctx.fillStyle = 'rgba(10, 18, 32, 0.92)';
+      ctx.fillRect(leftX, telY, telW, telH);
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.45)';
+      ctx.lineWidth = 0.85;
+      ctx.strokeRect(leftX, telY, telW, telH);
+      const maxSpd = Math.round(this.maxSpeedReached || 0);
+      const ovt = this.overtakesCount || 0;
+      const pits = this.pitStopsCount || 0;
+      const vacSec = (this.slipstreamTime || 0).toFixed(1);
+      ctx.font = 'bold 5.8px monospace';
+      ctx.fillStyle = '#00E5FF';
+      ctx.fillText(
+        `⚡ VEL. MÁX: ${maxSpd} KM/H   |   🔀 ULTRAPASSAGENS: ${ovt}   |   ⛽ PIT STOPS: ${pits}   |   💨 VÁCUO: ${vacSec}s`,
+        INTERNAL_WIDTH / 2,
+        telY + 8.2
+      );
 
       if (ranked[0] && ranked[1] && ranked[0].finishTime > 0 && ranked[1].finishTime > 0) {
         const gap12 = ranked[1].finishTime - ranked[0].finishTime;
         if (gap12 > 0 && gap12 < 0.30) {
           ctx.fillStyle = '#00E5FF';
-          ctx.font = 'bold 6.8px monospace';
-          ctx.fillText(`⚡ PHOTO FINISH! DIFERENÇA NA CHEGADA: +${gap12.toFixed(2)}s`, INTERNAL_WIDTH / 2, 186);
+          ctx.font = 'bold 6.2px monospace';
+          ctx.fillText(`⚡ PHOTO FINISH! DIFERENÇA NA CHEGADA: +${gap12.toFixed(2)}s`, INTERNAL_WIDTH / 2, 198);
         }
       }
 
