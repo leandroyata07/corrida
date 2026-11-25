@@ -44,6 +44,7 @@
       <div class="panel-tabs-bar">
         <button class="panel-tab-btn active" id="tab-btn-audio" type="button" data-tab="tab-audio">🔊 ÁUDIO</button>
         <button class="panel-tab-btn" id="tab-btn-controls" type="button" data-tab="tab-controls">🎮 CONTROLES</button>
+        <button class="panel-tab-btn" id="tab-btn-commands" type="button" data-tab="tab-commands">🕹️ COMANDOS</button>
         <button class="panel-tab-btn" id="tab-btn-system" type="button" data-tab="tab-system">⚙️ SISTEMA</button>
       </div>
 
@@ -160,20 +161,30 @@
             <button class="preset-btn" data-preset="0.75" type="button">75%</button>
             <button class="preset-btn" data-preset="1.00" type="button">100%</button>
           </div>
+        </div>
 
-          <div class="panel-section-title">JOYSTICK &amp; TECLADO</div>
+        <!-- ABA 3: COMANDOS (JOYSTICK & TECLADO) -->
+        <div class="tab-pane" id="tab-commands">
+          <div class="panel-section-title">NA CORRIDA (JOYSTICK &amp; TECLADO)</div>
           <div class="panel-help-box">
             <div>🎮 <b>R2 (RT) / Botão A / Seta Cima</b>: Acelerador</div>
             <div>🛑 <b>L2 (LT) / Botão X / Seta Baixo</b>: Freio</div>
             <div>🚀 <b>Botão Y / Espaço / N</b>: Nitro</div>
-            <div>⏱ <b>Botão B / Tecla X / Tab</b>: Classificação F1</div>
+            <div>⏱ <b>Botão B / Tecla X / Tab</b>: HUD F1</div>
             <div>🕹 <b>Analógico Esq. / D-Pad / Setas</b>: Direção (Esq/Dir)</div>
-            <div>⚙ <b>Start (Menus) / Select / C</b>: Abrir / Fechar Configurações</div>
-            <div>⏸ <b>Start (Corrida) / ESC / P</b>: Pausar Corrida</div>
+            <div>⏸ <b>Start / ESC / P</b>: Pausar Corrida</div>
+          </div>
+
+          <div class="panel-section-title">NOS MENUS &amp; PAUSE</div>
+          <div class="panel-help-box">
+            <div>✔ <b>Botão A / Enter</b>: Selecionar / Confirmar</div>
+            <div>↩ <b>Botão B / ESC</b>: Voltar / Cancelar</div>
+            <div>🧭 <b>Analógico Esq./Dir. / D-Pad / Setas</b>: 4 Direções</div>
+            <div>⚙ <b>Start (Menus) / Select / C</b>: Configurações</div>
           </div>
         </div>
 
-        <!-- ABA 3: SISTEMA -->
+        <!-- ABA 4: SISTEMA -->
         <div class="tab-pane" id="tab-system">
           <div class="panel-section-title">TELA &amp; EXIBIÇÃO</div>
           <div class="panel-btn-grid" style="margin-bottom: 6px;">
@@ -191,8 +202,8 @@
       </div>
 
       <!-- Rodapé Fixo -->
-      <div class="panel-footer-actions" style="margin-top: 4px; padding-top: 6px; border-top: 1px solid rgba(0, 229, 255, 0.35);">
-        <button class="panel-action-btn panel-action-resume" id="panel-resume-btn" type="button" style="width: 100%; font-size: 11px; padding: 7px 0;">▶ CONTINUAR</button>
+      <div class="panel-footer-actions">
+        <button class="panel-action-btn panel-action-resume" id="panel-resume-btn" type="button" style="width: 100%;">▶ CONTINUAR</button>
       </div>
     </div>
 
