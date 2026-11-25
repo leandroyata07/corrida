@@ -1600,10 +1600,29 @@
         return isDown && !prev;
       };
 
-      // Se as configurações estiverem abertas, gamepad fecha o menu de forma segura sem vazar comandos ao jogo
+      // Se as configurações estiverem abertas, permite scroll vertical e troca de abas pelo joystick sem vazar comandos ao jogo
       if (this.isSettingsOpen()) {
         if (checkPulse('btnSelect', btnSelect) || checkPulse('btnB', btnB) || checkPulse('btnStart', btnStart)) {
           this.closeSettings();
+        }
+        const scrollEl = document.querySelector('#opacity-panel .panel-body-scroll');
+        if (scrollEl) {
+          let scrollDir = 0;
+          if (dpadUp || leftStickY < -0.35 || rsUp) scrollDir = -1;
+          else if (dpadDown || leftStickY > 0.35 || rsDown) scrollDir = 1;
+          if (scrollDir !== 0) {
+            scrollEl.scrollTop += scrollDir * 7;
+          }
+        }
+        const tabStepLeft = checkPulse('setTabLeft', dpadLeft || leftStickX < -0.45 || rsLeft);
+        const tabStepRight = checkPulse('setTabRight', dpadRight || leftStickX > 0.45 || rsRight);
+        if (tabStepLeft || tabStepRight) {
+          const tabs = Array.from(document.querySelectorAll('#opacity-panel .panel-tab-btn'));
+          if (tabs.length > 0) {
+            const activeIdx = Math.max(0, tabs.findIndex(t => t.classList.contains('active')));
+            const nextIdx = (activeIdx + (tabStepRight ? 1 : -1) + tabs.length) % tabs.length;
+            tabs[nextIdx].click();
+          }
         }
         this.gpThrottlePressure = 0;
         this.gpBrakePressure = 0;

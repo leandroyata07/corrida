@@ -363,6 +363,76 @@ const SONGS = [
       [89,T,92,T, 96,T,101,T, 99,T,96,T, 92,T,89,T],
       [96,T,94,T, 91,T,87,T, 84,T,87,T, 91,T,T,T]
     ]
+  },
+  {
+    id: 'mp3_beyond',
+    name: 'BEYOND FINAL BEND',
+    type: 'file',
+    file: 'musics/Beyond_the_Final_Bend.mp3',
+    desc: 'Trilha MP3: Beyond the Final Bend (64 kbps streaming).'
+  },
+  {
+    id: 'mp3_final_turn',
+    name: 'FINAL TURN PURSUIT',
+    type: 'file',
+    file: 'musics/Final_Turn_Pursuit.mp3',
+    desc: 'Trilha MP3: Final Turn Pursuit (64 kbps streaming).'
+  },
+  {
+    id: 'mp3_midnight',
+    name: 'MIDNIGHT MARKERS',
+    type: 'file',
+    file: 'musics/Midnight_Mile_Markers.mp3',
+    desc: 'Trilha MP3: Midnight Mile Markers (64 kbps streaming).'
+  },
+  {
+    id: 'mp3_one_more',
+    name: 'ONE MORE RUN',
+    type: 'file',
+    file: 'musics/One_More_Run.mp3',
+    desc: 'Trilha MP3: One More Run (64 kbps streaming).'
+  },
+  {
+    id: 'mp3_guardrail',
+    name: 'PASSING GUARDRAIL',
+    type: 'file',
+    file: 'musics/Passing_the_Guardrail.mp3',
+    desc: 'Trilha MP3: Passing the Guardrail (64 kbps streaming).'
+  },
+  {
+    id: 'mp3_redline_hor',
+    name: 'REDLINE HORIZON',
+    type: 'file',
+    file: 'musics/Redline_Horizon.mp3',
+    desc: 'Trilha MP3: Redline Horizon (64 kbps streaming).'
+  },
+  {
+    id: 'mp3_redline_pur',
+    name: 'REDLINE PURSUIT',
+    type: 'file',
+    file: 'musics/Redline_Pursuit.mp3',
+    desc: 'Trilha MP3: Redline Pursuit (64 kbps streaming).'
+  },
+  {
+    id: 'mp3_redline_vic',
+    name: 'REDLINE VICTORY',
+    type: 'file',
+    file: 'musics/Redline_Victory_Lap.mp3',
+    desc: 'Trilha MP3: Redline Victory Lap (64 kbps streaming).'
+  },
+  {
+    id: 'mp3_final_corner',
+    name: 'THE FINAL CORNER',
+    type: 'file',
+    file: 'musics/The_Final_Corner.mp3',
+    desc: 'Trilha MP3: The Final Corner (64 kbps streaming).'
+  },
+  {
+    id: 'mp3_rearview',
+    name: 'VICTORY REARVIEW',
+    type: 'file',
+    file: 'musics/Victory_in_the_Rearview.mp3',
+    desc: 'Trilha MP3: Victory in the Rearview (64 kbps streaming).'
   }
 ];
 
@@ -627,8 +697,12 @@ class AudioManager {
         const audio = new Audio();
         audio.src = encodeURI(song.file);
         audio.loop = true;
-        audio.preload = 'auto';
+        audio.preload = 'none';
         audio.volume = this._enabled ? this.musicVolume : 0;
+        audio.addEventListener('error', () => {
+          // Fallback silencioso caso o MP3 falhe offline
+          try { audio.pause(); } catch (_) {}
+        });
         this.audioElements[song.id] = audio;
       } catch (_) {}
     }
@@ -636,12 +710,7 @@ class AudioManager {
   }
 
   initAudioElements() {
-    for (let i = 0; i < SONGS.length; i++) {
-      const s = SONGS[i];
-      if (s.type === 'file') {
-        this.getFileAudio(s);
-      }
-    }
+    // Carregamento sob demanda em getFileAudio() para não baixar os MP3s na abertura do jogo
   }
 
   pauseAllFileMusic(resetTime = false) {

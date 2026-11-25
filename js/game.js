@@ -2772,8 +2772,9 @@
             this.setupGroup = 1;
             this.audio.playBeep(380, 0.04);
           } else if (this.setupGroup === 1) {
-            if (this.songIndex >= 2) {
-              this.songIndex -= 2;
+            const colsSongs = (SONGS.length > 8) ? 3 : 2;
+            if (this.songIndex >= colsSongs) {
+              this.songIndex -= colsSongs;
               this.audio.stopTitleMusic();
               this.audio.musicPlaying = true;
               if (this.audio && typeof this.audio.setSong === 'function') {
@@ -2809,8 +2810,9 @@
               this.audio.playBeep(380, 0.04);
             }
           } else if (this.setupGroup === 1) {
-            if (this.songIndex + 2 < SONGS.length) {
-              this.songIndex += 2;
+            const colsSongs = (SONGS.length > 8) ? 3 : 2;
+            if (this.songIndex + colsSongs < SONGS.length) {
+              this.songIndex += colsSongs;
               this.audio.stopTitleMusic();
               this.audio.musicPlaying = true;
               if (this.audio && typeof this.audio.setSong === 'function') {
@@ -2877,10 +2879,9 @@
             return;
           }
           if (this.setupGroup === 1) {
-            // 2º Enter/Botão A: confirma a música e passa o foco para os botões (VOLTAR / QUALY / CONFIRMAR)
+            // 2º Enter/Botão A: confirma a música e passa o foco para Confirmar (botão 2)
             this.setupGroup = 2;
-            if (this.setupActionIdx === undefined) this.setupActionIdx = L.qualyBtn ? 1 : 2;
-            if (!L.qualyBtn && this.setupActionIdx === 1) this.setupActionIdx = 2;
+            this.setupActionIdx = 2;
             this.audio.playBeep(440, 0.08);
             this.input.clearPulses();
             return;

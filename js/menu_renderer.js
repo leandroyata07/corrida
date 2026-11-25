@@ -18,16 +18,17 @@
         const row = Math.floor(i / 4);
         conds.push({ x: startX + col * (cw + gx), y: y1 + row * (ch + gy), w: cw, h: ch, i });
       }
-      const sw = touchSafe ? 136 : 152;
-      const sh = touchSafe ? 8.2 : 8.5;
-      const sgx = touchSafe ? 3.5 : 4;
-      const sgy = touchSafe ? 2.0 : 2.2;
-      const sStartX = Math.round(INTERNAL_WIDTH / 2 - (2 * sw + sgx) / 2);
-      const y2 = touchSafe ? 61 : 64;
+      const colsSongs = (SONGS.length > 8) ? 3 : 2;
+      const sw = (colsSongs === 3) ? (touchSafe ? 96 : 112) : (touchSafe ? 136 : 152);
+      const sh = (colsSongs === 3) ? (touchSafe ? 7.6 : 8.2) : (touchSafe ? 8.2 : 8.5);
+      const sgx = (colsSongs === 3) ? 3.0 : (touchSafe ? 3.5 : 4);
+      const sgy = (colsSongs === 3) ? 1.4 : (touchSafe ? 2.0 : 2.2);
+      const sStartX = Math.round(INTERNAL_WIDTH / 2 - (colsSongs * sw + (colsSongs - 1) * sgx) / 2);
+      const y2 = touchSafe ? 58 : 61;
       const songs = [];
       for (let i = 0; i < SONGS.length; i++) {
-        const col = i % 2;
-        const row = Math.floor(i / 2);
+        const col = i % colsSongs;
+        const row = Math.floor(i / colsSongs);
         songs.push({ x: sStartX + col * (sw + sgx), y: y2 + row * (sh + sgy), w: sw, h: sh, i });
       }
       const showQualy = (this.gameMode !== 'TIME_TRIAL');
@@ -35,7 +36,7 @@
       const qualyW = showQualy ? (touchSafe ? 88 : 102) : 0;
       const startW = touchSafe ? (showQualy ? 96 : 116) : (showQualy ? 108 : 130);
       const btnH = touchSafe ? 15 : 16;
-      const btnY = touchSafe ? 138 : 144;
+      const btnY = touchSafe ? 142 : 147;
       const gapB = 8;
       const totalBtnsW = showQualy ? (btnW + gapB + qualyW + gapB + startW) : (btnW + 12 + startW);
       const btnStartX = Math.round(INTERNAL_WIDTH / 2 - totalBtnsW / 2);
@@ -68,12 +69,12 @@
         titleY: touchSafe ? 13 : 14,
         subY: touchSafe ? 21 : 22,
         label1Y: touchSafe ? 28 : 29,
-        label2Y: touchSafe ? 57 : 60,
-        descY: touchSafe ? 116 : 122,
-        gridY: touchSafe ? 122 : 128,
+        label2Y: touchSafe ? 54 : 57,
+        descY: touchSafe ? 127 : 132,
+        gridY: touchSafe ? 129 : 134,
         gridH: touchSafe ? 10.5 : 11,
         gridW: touchSafe ? 280 : 308,
-        hintY: touchSafe ? 160 : 168
+        hintY: touchSafe ? 163 : 170
       };
     }
 
@@ -1814,7 +1815,7 @@
       ctx.fillStyle = this.setupGroup === 1 ? '#FFD700' : '#90A4AE';
       ctx.fillText((this.setupGroup === 1 ? '\u25B6 ' : '') + 'TRILHA SONORA', INTERNAL_WIDTH / 2, L.label2Y);
       const curSongIdx = (typeof this.songIndex === 'number' && this.songIndex >= 0 && this.songIndex < SONGS.length) ? this.songIndex : 0;
-      const songChipFont = touchSafe ? 'bold 5.6px monospace' : 'bold 6.4px monospace';
+      const songChipFont = touchSafe ? 'bold 5.0px monospace' : 'bold 5.6px monospace';
       for (let k = 0; k < L.songs.length; k++) {
         const c = L.songs[k];
         const selected = (c.i === curSongIdx);
@@ -1831,10 +1832,6 @@
         ctx.font = songChipFont;
         ctx.fillText('\u266A ' + SONGS[c.i].name, c.x + c.w / 2, c.y + c.h / 2 + 2.2);
       }
-      ctx.fillStyle = '#B0BEC5';
-      ctx.font = touchSafe ? '5.8px monospace' : '6.8px monospace';
-      const curSong = SONGS[curSongIdx] || SONGS[0];
-      ctx.fillText(curSong.desc || '', INTERNAL_WIDTH / 2, L.descY);
 
       // Banner Informativo do Grid de Largada (ou Resultado do Qualy!)
       if (this.qualifiedGridPos > 0) {
