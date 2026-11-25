@@ -1557,21 +1557,21 @@
       const btnSelect = isBtnPressed(8);
       const btnStart = isBtnPressed(9);
 
-      // Padrão Xbox + Direcionais (D-Pad / Analógico):
-      // A (Verde) / RT / Cima = ACELERA
+      const game = this.getGame();
+      const isRaceActive = Boolean(game && (game.state === 'RACING' || game.state === 'COUNTDOWN' || game.state === 'RESUME_COUNTDOWN'));
+
+      // Padrão Xbox / PlayStation / Genérico:
+      // Na corrida: R2 / A = Acelera | L2 / X = Freio | Y = Nitro | B = HUD
+      // Nos menus/pause/config: L2 / R2 / X / Y desativados
       const r2Pressure = getTriggerVal(7, 5);
-      const stickGas = dpadUp || (leftStickY < -0.62);
-      this.gpThrottlePressure = (btnA || stickGas) ? 1.0 : r2Pressure;
-      this.gpActiveGas = (r2Pressure > 0.08) || btnA || stickGas;
+      this.gpThrottlePressure = isRaceActive ? (btnA ? 1.0 : r2Pressure) : 0;
+      this.gpActiveGas = isRaceActive ? ((r2Pressure > 0.08) || btnA) : false;
 
-      // X (Vermelho) / LT / Baixo = FREIO
       const l2Pressure = getTriggerVal(6, 2);
-      const stickBrake = dpadDown || (leftStickY > 0.62);
-      this.gpBrakePressure = (btnX || stickBrake) ? 1.0 : l2Pressure;
-      this.gpActiveBrake = (l2Pressure > 0.08) || btnX || stickBrake;
+      this.gpBrakePressure = isRaceActive ? (btnX ? 1.0 : l2Pressure) : 0;
+      this.gpActiveBrake = isRaceActive ? ((l2Pressure > 0.08) || btnX) : false;
 
-      // Y (Amarelo) = NITRO (botão Y ou botões RB/LB)
-      this.gpActiveNitro = btnY || btnRB || btnLB;
+      this.gpActiveNitro = isRaceActive ? (btnY || btnRB || btnLB) : false;
 
       // B (Azul F1) = HUD F1
       this.gpLeaderboard = false;
@@ -1621,63 +1621,56 @@
         this.toggleSettings();
       }
 
-      // Start = Pausa (pausa e despausa a corrida / confirma menus)
+      // Start = Pause na corrida | Configurações nos menus e pause
       if (checkPulse('btnStart', btnStart)) {
-        const game = this.getGame();
         if (game && game.state === 'RACING') {
           if (!game.finishingRace && !(game.player && game.player.finished)) {
             game.pauseGame();
           }
-        } else if (game && game.state === 'PAUSED') {
-          game.handlePauseStartKey();
         } else {
-          this.justPressedEsc = true;
-          this.justPressedEnter = true;
+          this.toggleSettings();
         }
       }
 
-      // Botão A = Confirmação nos Menus (se correndo, acelera diretamente)
-      if (checkPulse('btnA', btnA)) {
+      // Botão A = Confirmação nos Menus (na corrida, acelera sem vazar comando de menu)
+      if (checkPulse('btnA', btnA) && !isRaceActive) {
         this.justPressedEnter = true;
       }
 
-      // Botão B = Alterna Classificação F1 na corrida / Voltar e Cancelar nos Menus
+      // Botão B = Alterna HUD F1 na corrida / Voltar e Cancelar nos Menus e Pause
       if (checkPulse('btnB', btnB)) {
-        const game = this.getGame();
-        const isRaceActive = Boolean(game && (game.state === 'RACING' || game.state === 'COUNTDOWN' || game.state === 'RESUME_COUNTDOWN'));
         if (isRaceActive) {
           game.f1LeaderboardToggled = !game.f1LeaderboardToggled;
           if (game.audio) game.audio.playBeep(520, 0.05);
         } else if (game && game.state === 'PAUSED') {
           game.handlePauseBackKey();
-        } else if (!isRaceActive) {
+        } else {
           this.justPressedEsc = true;
         }
       }
 
-      // Botão Y / RB = Dispara Nitro
-      if (checkPulse('btnRB', btnRB) || checkPulse('btnY', btnY)) {
+      // Botão Y / RB = Dispara Nitro somente durante a corrida
+      if (isRaceActive && (checkPulse('btnRB', btnRB) || checkPulse('btnY', btnY))) {
         this.justPressedNitro = true;
       }
 
-      // Navegação nos Menus:
-      // Analógico Esquerdo e Digital D-Pad (Cima / Baixo navegam menus)
+      // Navegação nos Menus / Pause (somente fora da corrida ativa):
+      // Analógico Esquerdo, Analógico Direito e D-Pad Digital nas 4 direções
       const menuUpLeft = dpadUp || (leftStickY < -0.42);
       const menuDownLeft = dpadDown || (leftStickY > 0.42);
       const menuLeftStick = dpadLeft || (leftStickX < -0.42);
       const menuRightStick = dpadRight || (leftStickX > 0.42);
 
-      if (checkPulse('menuUpLeft', menuUpLeft) || checkPulse('rsUp', rsUp)) {
-        this.justPressedUp = true;
-      }
-      if (checkPulse('menuDownLeft', menuDownLeft) || checkPulse('rsDown', rsDown)) {
-        this.justPressedDown = true;
-      }
-      if (checkPulse('menuLeftStick', menuLeftStick) || checkPulse('rsLeft', rsLeft)) {
-        this.justPressedLeft = true;
-      }
-      if (checkPulse('menuRightStick', menuRightStick) || checkPulse('rsRight', rsRight)) {
-        this.justPressedRight = true;
+      const pUp = checkPulse('menuUpLeft', menuUpLeft) || checkPulse('rsUp', rsUp);
+      const pDown = checkPulse('menuDownLeft', menuDownLeft) || checkPulse('rsDown', rsDown);
+      const pLeft = checkPulse('menuLeftStick', menuLeftStick) || checkPulse('rsLeft', rsLeft);
+      const pRight = checkPulse('menuRightStick', menuRightStick) || checkPulse('rsRight', rsRight);
+
+      if (!isRaceActive) {
+        if (pUp) this.justPressedUp = true;
+        if (pDown) this.justPressedDown = true;
+        if (pLeft) this.justPressedLeft = true;
+        if (pRight) this.justPressedRight = true;
       }
 
       this.syncCombinedInputs();
