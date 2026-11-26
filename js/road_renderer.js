@@ -61,7 +61,7 @@
 
       const cameraX = this.finishingRace ? this.finishCameraX : (p.x * ROAD_WIDTH * 0.65);
       const cameraY = this.finishingRace ? this.finishCameraY : (camH + playerWorldY);
-      const drawnSegs = (def && def.id === 'teste') ? new Set() : null;
+      const drawnSegs = new Set();
       for (let n = 0; n < DRAW_DISTANCE; n++) {
         const segment = this.track.segments[(baseSegment.index + n) % totalSegs];
         const looped = segment.index < baseSegment.index;
@@ -119,9 +119,10 @@
           this.renderOverheadBridge(ctx, segment, def);
         }
 
-        if (def && def.id === 'teste' && drawnSegs && drawnSegs.has(segment.index) && segment.p1.screen.w > 6) {
+        if (drawnSegs.has(segment.index) && segment.p1.screen.w > 6) {
           const prevSeg = this.track.segments[(segment.index - 1 + totalSegs) % totalSegs];
           const prevNotDrawn = !!(drawnSegs && !drawnSegs.has(prevSeg.index) && segment.p1.screen.y < INTERNAL_HEIGHT + 24 && segment.p1.screen.y > segment.p2.screen.y + 0.5);
+          const fasciaCol = (def && def.id === 'noite') ? '#0284C7' : ((def && def.id === 'brasil') ? '#009739' : ((def && def.id === 'sertao') ? '#EA580C' : '#DC2626'));
           const makeNearSeg = (seg) => {
             const sp1 = seg.p1.screen, sp2 = seg.p2.screen;
             const targetY = INTERNAL_HEIGHT + 240;
@@ -129,28 +130,35 @@
             return {
               index: seg.index,
               pitSide: seg.pitSide,
-              grandstandSide: seg.grandstandSide,
               p1: { screen: { x: sp2.x + (sp1.x - sp2.x) * t, y: targetY, w: sp2.w + (sp1.w - sp2.w) * t } },
               p2: { screen: { x: sp1.x, y: sp1.y, w: sp1.w } }
             };
           };
           if (segment.pitWall) {
             const gs = -(segment.pitSide || 1);
-            this.renderTesteGrandstand(ctx, segment, isDark, nightIntensity, gs, segment.index === 18, segment.index === 89);
+            this.renderTesteGrandstand(ctx, segment, isDark, nightIntensity, gs, segment.index === 18, segment.index === 89, fasciaCol);
             if (prevNotDrawn && prevSeg.pitWall && segment.index !== 18) {
-              this.renderTesteGrandstand(ctx, makeNearSeg(segment), isDark, nightIntensity, gs, false, false);
+              this.renderTesteGrandstand(ctx, makeNearSeg(segment), isDark, nightIntensity, gs, false, false, fasciaCol);
             }
-            if (segment.index >= 18 && segment.index < 72) {
+            if (segment.index >= 18 && segment.index < 68) {
               this.renderTestePitGarages(ctx, segment, isDark, nightIntensity);
-              if (prevNotDrawn && prevSeg.pitWall && segment.index > 18 && prevSeg.index >= 18 && prevSeg.index < 72) {
+              if (prevNotDrawn && prevSeg.pitWall && segment.index > 18 && prevSeg.index >= 18 && prevSeg.index < 68) {
                 this.renderTestePitGarages(ctx, makeNearSeg(segment), isDark, nightIntensity);
               }
+            } else {
+              this.renderPitWall(ctx, segment);
             }
           }
-          if (segment.grandstandSide) {
-            this.renderTesteGrandstand(ctx, segment, isDark, nightIntensity, segment.grandstandSide, !!segment.grandstandStart, !!segment.grandstandEnd);
-            if (prevNotDrawn && !segment.grandstandStart && prevSeg.grandstandSide === segment.grandstandSide) {
-              this.renderTesteGrandstand(ctx, makeNearSeg(segment), isDark, nightIntensity, segment.grandstandSide, false, false);
+          if (segment.grandstandLeft) {
+            this.renderTesteGrandstand(ctx, segment, isDark, nightIntensity, -1, !!segment.grandstandLeft.start, !!segment.grandstandLeft.end, fasciaCol);
+            if (prevNotDrawn && !segment.grandstandLeft.start && prevSeg.grandstandLeft) {
+              this.renderTesteGrandstand(ctx, makeNearSeg(segment), isDark, nightIntensity, -1, false, false, fasciaCol);
+            }
+          }
+          if (segment.grandstandRight) {
+            this.renderTesteGrandstand(ctx, segment, isDark, nightIntensity, 1, !!segment.grandstandRight.start, !!segment.grandstandRight.end, fasciaCol);
+            if (prevNotDrawn && !segment.grandstandRight.start && prevSeg.grandstandRight) {
+              this.renderTesteGrandstand(ctx, makeNearSeg(segment), isDark, nightIntensity, 1, false, false, fasciaCol);
             }
           }
         }
@@ -163,6 +171,10 @@
           } else {
             this.renderScenery(ctx, segment, segment.scenery, def);
           }
+        }
+
+        if (segment.pitWall && drawnSegs.has(segment.index) && segment.p1.screen.w > 6) {
+          this.renderPitBollards(ctx, segment);
         }
 
         if (segment.cars && segment.cars.length > 0) {
@@ -229,7 +241,7 @@
       }
     }
 
-    renderTesteGrandstand(ctx, segment, isDark = false, nightIntensity = 0, gsOverride = null, isStart = false, isEnd = false) {
+    renderTesteGrandstand(ctx, segment, isDark = false, nightIntensity = 0, gsOverride = null, isStart = false, isEnd = false, fasciaCol = '#DC2626') {
       const p1 = segment.p1.screen;
       const p2 = segment.p2.screen;
       if (p1.w <= 6 || p2.y >= p1.y) return;
@@ -263,10 +275,10 @@
       this.drawPoly(ctx, t1Out1, segBottomY - hT1_1, t2Out1, segBottomY - hT2_1, t2Out2, topY - hT2_2, t1Out2, topY - hT1_2, '#3E4C5E');
       this.drawPoly(ctx, t2Out1, segBottomY - hT2_1, t3Out1, segBottomY - hT3_1, t3Out2, topY - hT3_2, t2Out2, topY - hT2_2, '#334155');
 
-      // Cobertura inclinada contínua + testeira vermelha elegante
+      // Cobertura inclinada contínua + testeira na cor do circuito
       this.drawPoly(ctx, baseIn1, segBottomY - hRoof1, t4Out1, segBottomY - hRoof1 * 1.06, t4Out2, topY - hRoof2 * 1.06, baseIn2, topY - hRoof2, '#1E293B');
       const fasciaH1 = p1.w * 0.048, fasciaH2 = p2.w * 0.048;
-      this.drawPoly(ctx, baseIn1, segBottomY - hRoof1 + fasciaH1, baseIn1, segBottomY - hRoof1, baseIn2, topY - hRoof2, baseIn2, topY - hRoof2 + fasciaH2, '#DC2626');
+      this.drawPoly(ctx, baseIn1, segBottomY - hRoof1 + fasciaH1, baseIn1, segBottomY - hRoof1, baseIn2, topY - hRoof2, baseIn2, topY - hRoof2 + fasciaH2, fasciaCol);
 
       // Torcida diversa (homens e mulheres, variações de pele branca, parda e negra)
       if (p1.w > 9 && !isStart && !isEnd) {
@@ -395,9 +407,9 @@
       const segBottomY = p1.y;
       const topY = p2.y;
 
-      const garIn1 = p1.x + p1.w * ps * 2.34, garIn2 = p2.x + p2.w * ps * 2.34;
-      const garOut1 = p1.x + p1.w * ps * 3.24, garOut2 = p2.x + p2.w * ps * 3.24;
-      const roofIn1 = p1.x + p1.w * ps * 2.18, roofIn2 = p2.x + p2.w * ps * 2.18;
+      const garIn1 = p1.x + p1.w * ps * 2.26, garIn2 = p2.x + p2.w * ps * 2.26;
+      const garOut1 = p1.x + p1.w * ps * 3.16, garOut2 = p2.x + p2.w * ps * 3.16;
+      const roofIn1 = p1.x + p1.w * ps * 2.12, roofIn2 = p2.x + p2.w * ps * 2.12;
 
       const hGar1 = p1.w * 0.36, hGar2 = p2.w * 0.36;
       const hFas1 = p1.w * 0.50, hFas2 = p2.w * 0.50;
@@ -415,8 +427,8 @@
         { col: '#E11D48', code: 'HAS' },
         { col: '#A855F7', code: 'LH44' }
       ];
-      const bayIdx = Math.floor((segment.index - 18) / 6);
-      const bayLocal = (segment.index - 18) % 6;
+      const bayIdx = Math.floor((segment.index - 18) / 5);
+      const bayLocal = (segment.index - 18) % 5;
       const team = TEAM_BOXES[bayIdx % TEAM_BOXES.length];
 
       // Interior contínuo e suave do box (sem alternância quadriculada)
@@ -430,7 +442,7 @@
       if (bayLocal === 0) {
         this.drawPoly(ctx, garIn1, segBottomY, garOut1, segBottomY, garOut1, segBottomY - hPad1, garIn1, segBottomY - hPad1, '#334155');
       } else if (p1.w > 12) {
-        if (bayLocal === 1 || bayLocal === 5) {
+        if (bayLocal === 1 || bayLocal === 4) {
           // Pilha arredondada de pneus slick dentro do box
           const tr = Math.max(1.5, p1.w * 0.032);
           const tx = garIn1 + ps * p1.w * 0.06;
@@ -443,7 +455,7 @@
             ctx.lineWidth = Math.max(0.6, tr * 0.25);
             ctx.stroke();
           }
-        } else if (bayLocal === 3) {
+        } else if (bayLocal === 2) {
           // Painel de telemetria suave + luz interna do box
           const monW = Math.max(2.5, p1.w * 0.10);
           const monH = Math.max(2, hGar1 * 0.34);
@@ -457,7 +469,7 @@
 
       // Faixa contínua da equipe acima da porta do box + sigla
       this.drawPoly(ctx, garIn1, segBottomY - hGar1, garIn1, segBottomY - hFas1, garIn2, topY - hFas2, garIn2, topY - hGar2, team.col);
-      if (bayLocal === 3 && p1.w > 12) {
+      if (bayLocal === 2 && p1.w > 12) {
         ctx.fillStyle = '#FFFFFF';
         ctx.font = `bold ${Math.max(3, (hFas1 - hGar1) * 0.62).toFixed(1)}px monospace`;
         ctx.textAlign = ps > 0 ? 'left' : 'right';
@@ -478,7 +490,7 @@
       this.drawPoly(ctx, roofIn1, segBottomY - hPad1, garOut1, segBottomY - hRoof1, garOut2, topY - hRoof2, roofIn2, topY - hPad2, '#1E293B');
 
       // Refletores de teto dos boxes (ligados automaticamente com isDark igual aos postes, apontados para o Pit Lane/pista)
-      if (bayLocal === 3 && p1.w > 8) {
+      if (bayLocal === 2 && p1.w > 8) {
         const toTrack = -ps;
         const lampX = roofIn1;
         const lampY = segBottomY - hPad1 - p1.w * 0.025;
@@ -513,8 +525,149 @@
       }
 
       // Parede lateral de fechamento no início/fim do prédio dos boxes
-      if (segment.index === 18 || segment.index === 71) {
+      if (segment.index === 18 || segment.index === 67) {
         this.drawPoly(ctx, garIn1, segBottomY, garOut1, segBottomY, garOut1, segBottomY - hRoof1, garIn1, segBottomY - hPad1, '#1E293B');
+      }
+    }
+
+    renderPitWall(ctx, segment) {
+      const p1 = segment.p1.screen;
+      const p2 = segment.p2.screen;
+      if (p1.w <= 6 || p2.y >= p1.y) return;
+      const ps = segment.pitSide || 1;
+      const segBottomY = p1.y;
+      const topY = p2.y;
+      const wallDist1 = segment.pitExit ? (2.26 - 1.10 * (segment.pitExitT1 || 0)) : 2.26;
+      const wallDist2 = segment.pitExit ? (2.26 - 1.10 * (segment.pitExitT2 || 0)) : 2.26;
+      const wx1 = p1.x + p1.w * ps * wallDist1;
+      const wx2 = p2.x + p2.w * ps * wallDist2;
+      const wh1 = Math.max(3.5, p1.w * 0.18);
+      const wh2 = Math.max(1.8, p2.w * 0.18);
+      const ww1 = Math.max(2.2, p1.w * 0.06) * ps;
+      const ww2 = Math.max(1.2, p2.w * 0.06) * ps;
+
+      const isLightWall = Math.floor(segment.index / 3) % 2 === 0;
+      const wallBase = isLightWall ? '#475569' : '#334155';
+      const wallTop = '#64748B';
+      this.drawPoly(ctx, wx1, segBottomY - wh1, wx1 + ww1, segBottomY - wh1, wx2 + ww2, topY - wh2, wx2, topY - wh2, wallTop);
+      this.drawPoly(ctx, wx1, segBottomY, wx1, segBottomY - wh1, wx2, topY - wh2, wx2, topY, wallBase);
+      this.drawPoly(ctx, wx1, segBottomY - wh1 * 0.88, wx1, segBottomY - wh1, wx2, topY - wh2, wx2, topY - wh2 * 0.88, isLightWall ? '#FBBF24' : '#1E293B');
+
+      if (segment.index % 4 === 0 && p1.w > 10) {
+        const fenceH = wh1 * 1.5;
+        ctx.strokeStyle = '#94A3B8';
+        ctx.lineWidth = Math.max(1, p1.w * 0.015);
+        ctx.beginPath();
+        ctx.moveTo(wx1, segBottomY - wh1);
+        ctx.lineTo(wx1, segBottomY - fenceH);
+        ctx.stroke();
+
+        const scrW = Math.max(3, p1.w * 0.08);
+        const scrH = Math.max(2, wh1 * 0.45);
+        ctx.fillStyle = '#0284C7';
+        ctx.fillRect(ps > 0 ? wx1 : (wx1 - scrW), segBottomY - wh1 * 0.8, scrW, scrH);
+      }
+    }
+
+    renderPitBollards(ctx, segment) {
+      if (segment.pitExit) return; // Saída do Pit Lane fica sempre aberta
+      const pitClosedNow = !this.player || this.raceTimer <= 6.5 || this.player.totalDistance <= (START_LINE_Z + 1800);
+      if (!(segment.pitBarrier || (pitClosedNow && segment.pitEntry))) return;
+      const p1 = segment.p1.screen;
+      const p2 = segment.p2.screen;
+      if (p1.w <= 6) return;
+
+      const ps = segment.pitSide || 1;
+      const segBottomY = p1.y;
+      const topY = p2.y;
+      const tx1 = p1.x + p1.w * ps * 1.05;
+      const tx2 = p2.x + p2.w * ps * 1.05;
+      const bh1 = Math.max(5.0, p1.w * 0.176);
+      const bh2 = Math.max(2.5, p2.w * 0.176);
+
+      // Barras metálicas de guardrail ligando os cones/piquetes em sequência contínua
+      if (p2.w > 3 && segBottomY > topY) {
+        const railT1 = Math.max(0.8, bh1 * 0.12);
+        const railT2 = Math.max(0.4, bh2 * 0.12);
+        const r1Y_a = segBottomY - bh1 * 0.72, r2Y_a = topY - bh2 * 0.72;
+        const r1Y_b = segBottomY - bh1 * 0.42, r2Y_b = topY - bh2 * 0.42;
+        this.drawPoly(ctx, tx1, r1Y_a, tx1, r1Y_a - railT1, tx2, r2Y_a - railT2, tx2, r2Y_a, '#CBD5E1');
+        this.drawPoly(ctx, tx1, r1Y_b, tx1, r1Y_b - railT1, tx2, r2Y_b - railT2, tx2, r2Y_b, '#94A3B8');
+      }
+
+      if (segment.index % 2 !== 0) return;
+      const bw = Math.max(2.3, p1.w * 0.061);
+      const bh = bh1;
+      const bx = tx1 - bw * 0.5;
+      const by = segBottomY - bh;
+      const isAlt = (Math.floor(segment.index / 2) % 2 === 0);
+      const colA = isAlt ? '#FFE600' : '#EF1D1D';
+      const colB = isAlt ? '#EF1D1D' : '#FFE600';
+      const pad = Math.max(0.65, bw * 0.13);
+      const rx = bw * 0.5;
+      const ry = Math.max(0.9, bw * 0.22);
+      const rTop = Math.max(1.2, bw * 0.38);
+
+      // Sombra na base do cilindro
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.30)';
+      ctx.beginPath();
+      ctx.ellipse(tx1, segBottomY, rx * 1.15, ry * 0.9, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Silhueta cilíndrica preta externa (base elíptica + topo arredondado)
+      ctx.fillStyle = '#090D16';
+      ctx.beginPath();
+      ctx.ellipse(tx1, segBottomY - ry * 0.4, rx, ry, 0, 0, Math.PI);
+      ctx.lineTo(bx, by + rTop);
+      ctx.quadraticCurveTo(bx, by, bx + rTop, by);
+      ctx.lineTo(bx + bw - rTop, by);
+      ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + rTop);
+      ctx.lineTo(bx + bw, segBottomY - ry * 0.4);
+      ctx.closePath();
+      ctx.fill();
+
+      // 6 faixas internas com sombreamento cilíndrico 3D
+      const ix = bx + pad;
+      const iw = Math.max(1.2, bw - pad * 2);
+      const innerTop = by + pad;
+      const innerH = Math.max(2.6, bh - pad * 2 - ry * 0.4);
+      const bands = [
+        { r: 0.13, col: colA, dome: true },
+        { r: 0.24, col: colB },
+        { r: 0.10, col: '#FFFFFF' },
+        { r: 0.27, col: colA },
+        { r: 0.10, col: '#FFFFFF' },
+        { r: 0.16, col: colB }
+      ];
+      const gap = Math.max(0.45, pad * 0.80);
+      const usableH = Math.max(2.0, innerH - gap * (bands.length - 1));
+      let curY = innerTop;
+      for (let bi = 0; bi < bands.length; bi++) {
+        const bH = usableH * bands[bi].r;
+        ctx.fillStyle = bands[bi].col;
+        if (bands[bi].dome) {
+          const dr = Math.min(rTop * 0.7, bH * 0.85);
+          ctx.beginPath();
+          ctx.moveTo(ix, curY + bH);
+          ctx.lineTo(ix, curY + dr);
+          ctx.quadraticCurveTo(ix, curY, ix + dr, curY);
+          ctx.lineTo(ix + iw - dr, curY);
+          ctx.quadraticCurveTo(ix + iw, curY, ix + iw, curY + dr);
+          ctx.lineTo(ix + iw, curY + bH);
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          ctx.fillRect(ix, curY, iw, bH);
+        }
+        curY += bH + gap;
+      }
+
+      // Brilho especular esquerdo + sombra direita para dar volume cilíndrico
+      if (iw >= 1.8) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+        ctx.fillRect(ix + iw * 0.18, innerTop + rTop * 0.4, Math.max(0.6, iw * 0.20), innerH - rTop * 0.5);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.24)';
+        ctx.fillRect(ix + iw * 0.74, innerTop + rTop * 0.4, Math.max(0.6, iw * 0.26), innerH - rTop * 0.5);
       }
     }
 
@@ -655,7 +808,7 @@
 
     renderSegment(ctx, segment, maxY) {
       const rawP1 = segment.p1.screen;
-      const p2 = segment.p2.screen;
+      let p2 = segment.p2.screen;
       const c = segment.color;
 
       // Se for o primeiro segmento visível do quadro e p1 não encostar no fundo da tela (INTERNAL_HEIGHT),
@@ -676,10 +829,28 @@
       const bottomY = isFirst ? INTERNAL_HEIGHT : Math.min(p1.y, maxY);
       if (p2.y >= bottomY) return;
 
-      // Sobreposição vertical de subpixel entre trapézios adjacentes: elimina 100% de linhas e frestas na pista
+      // Sobreposição vertical de subpixel entre trapézios adjacentes com projeção proporcional de x/w
+      // para eliminar tanto frestas horizontais quanto degraus nas zebras e faixas laterais
       const segOverlap = 1.0;
       const topY = Math.max(0, p2.y - segOverlap);
       const segBottomY = isFirst ? INTERNAL_HEIGHT : Math.min(INTERNAL_HEIGHT, bottomY + 0.6);
+      const segSpanY = p1.y - p2.y;
+      let pitT1 = segment.pitExitT1 || 0;
+      let pitT2 = segment.pitExitT2 || 0;
+      if (segSpanY > 0.25) {
+        const tBot = (segBottomY - p2.y) / segSpanY;
+        const tTop = (topY - p2.y) / segSpanY;
+        const baseX = p2.x, baseW = p2.w;
+        const dX = p1.x - baseX, dW = p1.w - baseW;
+        p1 = { x: baseX + dX * tBot, y: segBottomY, w: Math.max(0.5, baseW + dW * tBot), scale: p1.scale };
+        p2 = { x: baseX + dX * tTop, y: topY,       w: Math.max(0.5, baseW + dW * tTop), scale: p2.scale };
+        if (segment.pitExit) {
+          const baseT = pitT2;
+          const dT = pitT1 - baseT;
+          pitT1 = Math.max(0, Math.min(1, baseT + dT * tBot));
+          pitT2 = Math.max(0, Math.min(1, baseT + dT * tTop));
+        }
+      }
 
       const r1 = p1.w / 6;
       const r2 = p2.w / 6;
@@ -768,10 +939,10 @@
         const ps = segment.pitSide || 1;
         const isLightPit = Math.floor(segment.index / 3) % 2 === 0;
         const pitAsphalt = isLightPit ? '#2B3340' : '#242B36';
-        const outer1 = segment.pitExit ? (2.26 - 1.22 * (segment.pitExitT1 || 0)) : 2.26;
-        const outer2 = segment.pitExit ? (2.26 - 1.22 * (segment.pitExitT2 || 0)) : 2.26;
-        const mid1 = segment.pitExit ? (1.65 - 0.65 * (segment.pitExitT1 || 0)) : 1.65;
-        const mid2 = segment.pitExit ? (1.65 - 0.65 * (segment.pitExitT2 || 0)) : 1.65;
+        const outer1 = segment.pitExit ? (2.26 - 1.10 * pitT1) : 2.26;
+        const outer2 = segment.pitExit ? (2.26 - 1.10 * pitT2) : 2.26;
+        const mid1 = segment.pitExit ? (1.65 - 0.55 * pitT1) : 1.65;
+        const mid2 = segment.pitExit ? (1.65 - 0.55 * pitT2) : 1.65;
         this.drawPoly(ctx, p1.x + p1.w * ps * 1.04, segBottomY, p1.x + p1.w * ps * outer1, segBottomY, p2.x + p2.w * ps * outer2, topY, p2.x + p2.w * ps * 1.04, topY, pitAsphalt);
         // Faixa central amarela no corredor dos boxes (acompanhando a diagonal na saída)
         if (segment.index % 4 < 2) {
@@ -791,20 +962,6 @@
           const markOut1 = Math.max(1.12, outer1 - 0.08);
           const markOut2 = Math.max(1.12, outer2 - 0.08);
           this.drawPoly(ctx, p1.x + p1.w * ps * 1.10, segBottomY, p1.x + p1.w * ps * markOut1, segBottomY, p2.x + p2.w * ps * markOut2, topY, p2.x + p2.w * ps * 1.10, topY, '#38BDF8');
-        }
-        // Barreira de pneus/piquetes 3D (alta verticalmente): sempre no trecho central; na Volta 1 (largada) fecha entrada/saída também!
-        if ((segment.pitBarrier || pitClosedNow) && p1.w > 6 && segment.index % 2 === 0) {
-          const tx1 = p1.x + p1.w * ps * 1.05;
-          const tw1 = Math.max(3.0, p1.w * 0.09);
-          const th1 = Math.max(6.0, p1.w * 0.22);
-          const isClosedGate = !segment.pitBarrier && pitClosedNow;
-          const tireCol = isClosedGate
-            ? ((Math.floor(segment.index / 2) % 2 === 0) ? '#F97316' : '#F8FAFC')
-            : ((Math.floor(segment.index / 2) % 2 === 0) ? '#DC2626' : '#F8FAFC');
-          ctx.fillStyle = isClosedGate ? '#7C2D12' : '#0F172A';
-          ctx.fillRect(tx1 - tw1 * 0.5, segBottomY - th1, tw1, th1);
-          ctx.fillStyle = tireCol;
-          ctx.fillRect(tx1 - tw1 * 0.42, segBottomY - th1 * 0.86, tw1 * 0.84, th1 * 0.44);
         }
       }
 
@@ -832,47 +989,6 @@
         }
         this.drawPoly(ctx, gx1, segBottomY - gh1, gx1 + gw1, segBottomY - gh1, gx2 + gw2, topY - gh2, gx2, topY - gh2, railColor);
         this.drawPoly(ctx, gx1, segBottomY - gh1 * 0.5, gx1 + gw1, segBottomY - gh1 * 0.5, gx2 + gw2, topY - gh2 * 0.5, gx2, topY - gh2 * 0.5, railColor);
-      }
-
-      // Mureta dos Boxes 3D contínua na Reta Principal (por fora do corredor do Pit Lane, fechando em diagonal na saída)
-      if (segment.pitWall && p1.w > 6) {
-        const ps = segment.pitSide || 1;
-        const wallDist1 = segment.pitExit ? (2.26 - 1.22 * (segment.pitExitT1 || 0)) : 2.26;
-        const wallDist2 = segment.pitExit ? (2.26 - 1.22 * (segment.pitExitT2 || 0)) : 2.26;
-        const wx1 = p1.x + p1.w * ps * wallDist1;
-        const wx2 = p2.x + p2.w * ps * wallDist2;
-        const wh1 = Math.max(3.5, p1.w * 0.18);
-        const wh2 = Math.max(1.8, p2.w * 0.18);
-        const ww1 = Math.max(2.2, p1.w * 0.06) * ps;
-        const ww2 = Math.max(1.2, p2.w * 0.06) * ps;
-
-        // Mureta de concreto
-        const isLightWall = Math.floor(segment.index / 3) % 2 === 0;
-        const wallBase = isLightWall ? '#475569' : '#334155';
-        const wallTop = '#64748B';
-        // Face superior e lateral frontal
-        this.drawPoly(ctx, wx1, segBottomY - wh1, wx1 + ww1, segBottomY - wh1, wx2 + ww2, topY - wh2, wx2, topY - wh2, wallTop);
-        this.drawPoly(ctx, wx1, segBottomY, wx1, segBottomY - wh1, wx2, topY - wh2, wx2, topY, wallBase);
-
-        // Faixa de advertência amarela/preta no topo da mureta
-        this.drawPoly(ctx, wx1, segBottomY - wh1 * 0.88, wx1, segBottomY - wh1, wx2, topY - wh2, wx2, topY - wh2 * 0.88, isLightWall ? '#FBBF24' : '#1E293B');
-
-        // Postes de tela de proteção (grade de segurança) e telas de telemetria
-        if (segment.index % 4 === 0 && p1.w > 10) {
-          const fenceH = wh1 * 1.5;
-          ctx.strokeStyle = '#94A3B8';
-          ctx.lineWidth = Math.max(1, p1.w * 0.015);
-          ctx.beginPath();
-          ctx.moveTo(wx1, segBottomY - wh1);
-          ctx.lineTo(wx1, segBottomY - fenceH);
-          ctx.stroke();
-
-          // Monitor de telemetria da equipe voltado para a pista
-          const scrW = Math.max(3, p1.w * 0.08);
-          const scrH = Math.max(2, wh1 * 0.45);
-          ctx.fillStyle = '#0284C7';
-          ctx.fillRect(ps > 0 ? wx1 : (wx1 - scrW), segBottomY - wh1 * 0.8, scrW, scrH);
-        }
       }
 
       // Asfalto com sobreposição perfeita e trilhas sutis de rolagem 2.5D HD (zero frestas/linhas)

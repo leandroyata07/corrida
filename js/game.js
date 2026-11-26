@@ -22,7 +22,7 @@
 
       this.state = 'MENU';
       this.titleMenuIndex = 0;
-      this.trackIndex = 0;
+      this.trackIndex = this.getMenuBgTrackIndex();
       this.track = null;
       this.selectedCarIndex = 0;
       this.colorIndex = 1;
@@ -357,6 +357,11 @@
       this.scheduleNextFrame();
     }
 
+    getMenuBgTrackIndex() {
+      const idx = TRACK_DEFINITIONS.findIndex(t => t && t.id === 'teste');
+      return idx !== -1 ? idx : 0;
+    }
+
     vibrate(pattern) {
       try {
         if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
@@ -476,7 +481,7 @@
               this.audio.stopRaceEffects();
               this.audio.playTitleMusic();
             }
-            this.loadTrack(0);
+            this.loadTrack(this.getMenuBgTrackIndex());
             this.menuCameraZ = 0;
             this.state = 'MENU';
             this.menuFadeAlpha = 0;
@@ -491,7 +496,7 @@
               this.audio.stopRaceEffects();
               this.audio.playTitleMusic();
             }
-            this.loadTrack(0);
+            this.loadTrack(this.getMenuBgTrackIndex());
             this.menuCameraZ = 0;
             this.state = 'MENU';
             this.menuFadeAlpha = 0;
@@ -512,7 +517,7 @@
               this.audio.stopRaceEffects();
               this.audio.playTitleMusic();
             }
-            this.loadTrack(0);
+            this.loadTrack(this.getMenuBgTrackIndex());
             this.menuCameraZ = 0;
             this.state = 'MENU';
             this.menuFadeAlpha = 0;
@@ -3467,7 +3472,7 @@
             this.onlineSubMode = (this.netplay && this.netplay.connected) ? 'ROOM' : 'CHOICE';
             this.fadeTransition('ONLINE_LOBBY');
           } else {
-            this.loadTrack(0);
+            this.loadTrack(this.getMenuBgTrackIndex());
             this.fadeTransition('MENU');
           }
         }
@@ -3579,16 +3584,26 @@
         // Entrada exclusiva pós-1ª volta e somente pela margem verde indicada no chão (pitEntry)
         if (
           !this.player.pitEntered &&
-          curPitSeg && curPitSeg.pitWall &&
+          curPitSeg && curPitSeg.pitWall && !curPitSeg.pitExit &&
           (!pitOpenForPlayer || !curPitSeg.pitEntry || this.player.pitUsedLap === this.player.laps) &&
           pxSide > 0.96
         ) {
           this.player.x = ps * 0.95;
+          if (curPitSeg.pitBarrier || (!pitOpenForPlayer && curPitSeg.pitEntry)) {
+            this.player.bumpVelX = -ps * Math.max(Math.abs(this.player.bumpVelX || 0), 0.30);
+            this.player.speed = Math.max(30, this.player.speed * 0.95);
+            this.shake = Math.max(this.shake, 2.2);
+            if (this.player.speed > 55) {
+              this.particlePool.spawn(ps * 1.03, 0.05, this.player.z - 4, -ps * 0.3, -0.3, 0.2, '#FFD700');
+            }
+          }
         }
 
         // Uma vez dentro do Pit Lane, não pode sair para a pista antes da saída normal (pitExit)
         if (this.player.pitEntered && curPitSeg && curPitSeg.pitWall && !curPitSeg.pitExit && this.player.x * ps < 1.13) {
           this.player.x = ps * 1.13;
+          this.player.bumpVelX = ps * Math.max(Math.abs(this.player.bumpVelX || 0), 0.24);
+          this.shake = Math.max(this.shake, 1.8);
         }
 
         const inPitCorridor = !!(
@@ -3598,14 +3613,17 @@
           (this.player.x * ps) >= 1.06 && (this.player.x * ps) <= 2.24
         );
 
-        // Barreira de pneus entre a pista principal e o Pit Lane
-        if (curPitSeg && curPitSeg.pitBarrier && pitOpenForPlayer && (this.player.x * ps) >= 0.96 && (this.player.x * ps) <= 1.12) {
+        // Barreira de piquetes + guardrail entre a pista principal e o Pit Lane
+        if (curPitSeg && (curPitSeg.pitBarrier || (!pitOpenForPlayer && curPitSeg.pitEntry)) && (this.player.x * ps) >= 0.96 && (this.player.x * ps) <= 1.12) {
           if (this.player.inPitLane || this.player.pitEntered) {
             this.player.x = ps * 1.13;
+            this.player.bumpVelX = ps * Math.max(Math.abs(this.player.bumpVelX || 0), 0.24);
           } else {
             this.player.x = ps * 0.95;
+            this.player.bumpVelX = -ps * Math.max(Math.abs(this.player.bumpVelX || 0), 0.30);
           }
-          this.player.speed *= 0.97;
+          this.player.speed = Math.max(30, this.player.speed * 0.95);
+          this.shake = Math.max(this.shake, 2.2);
         }
 
         if (inPitCorridor) {
@@ -3617,8 +3635,12 @@
           this.player.speed = Math.min(this.player.speed, 140);
           this.player.pitTimer = (this.player.pitTimer || 0) + dt;
           this.pitProgress = Math.min(1, this.player.pitTimer / 3.8);
-          const pitMaxX = curPitSeg.pitExit ? Math.max(1.04, 2.16 - 1.12 * (curPitSeg.pitExitT1 || 0)) : 2.16;
-          if (this.player.x * ps > pitMaxX) this.player.x = ps * pitMaxX;
+          const pitMaxX = curPitSeg.pitExit ? Math.max(1.06, 2.16 - 1.10 * (curPitSeg.pitExitT1 || 0)) : 2.16;
+          if (this.player.x * ps > pitMaxX) {
+            this.player.x = ps * pitMaxX;
+            this.player.bumpVelX = -ps * Math.max(Math.abs(this.player.bumpVelX || 0), 0.22);
+            this.shake = Math.max(this.shake, 1.6);
+          }
         } else {
           if (this.player.pitEntered && this.player.pitTimer >= 0.65) {
             this.player.nitroCharges = 3;
@@ -3633,6 +3655,21 @@
           this.player.pitEntered = false;
           this.player.pitTimer = 0;
           this.pitProgress = 0;
+        }
+
+        // Colisão física universal com a mureta externa do Pit Lane (garagens + diagonal de saída) em todas as pistas
+        if (curPitSeg && curPitSeg.pitWall) {
+          const wallDist = curPitSeg.pitExit ? (2.26 - 1.10 * (curPitSeg.pitExitT1 || 0)) : 2.26;
+          const wallLimit = Math.max(1.06, wallDist - 0.10);
+          if ((this.player.x * ps) > wallLimit) {
+            this.player.x = ps * wallLimit;
+            this.player.bumpVelX = -ps * Math.max(Math.abs(this.player.bumpVelX || 0), 0.26);
+            this.player.speed = Math.max(30, this.player.speed * 0.95);
+            this.shake = Math.max(this.shake, 2.0);
+            if (this.player.speed > 55) {
+              this.particlePool.spawn(ps * wallDist, 0.05, this.player.z - 4, -ps * 0.28, -0.28, 0.18, '#FFD700');
+            }
+          }
         }
 
         // Modo Eliminação (Knockout): elimina o último ativo a cada volta completada pelo líder
@@ -3959,15 +3996,16 @@
       }
       p.x = Math.max(Math.min(p.x, 2.25), -2.25);
 
-      // Colisão física com o guardrail das arquibancadas na PISTA TESTE
-      const _curTrackDef = TRACK_DEFINITIONS[this.trackIndex];
-      if (_curTrackDef && _curTrackDef.id === 'teste' && playerSeg) {
+      // Colisão física com o guardrail das arquibancadas em todas as pistas
+      if (playerSeg) {
         const aheadSeg = this.findSegment(p.z + SEGMENT_LENGTH);
         const gsList = [];
         if (playerSeg.pitWall) gsList.push(-(playerSeg.pitSide || 1));
-        if (playerSeg.grandstandSide) gsList.push(playerSeg.grandstandSide);
+        if (playerSeg.grandstandLeft) gsList.push(-1);
+        if (playerSeg.grandstandRight) gsList.push(1);
         if (aheadSeg && aheadSeg.pitWall) gsList.push(-(aheadSeg.pitSide || 1));
-        if (aheadSeg && aheadSeg.grandstandSide) gsList.push(aheadSeg.grandstandSide);
+        if (aheadSeg && aheadSeg.grandstandLeft) gsList.push(-1);
+        if (aheadSeg && aheadSeg.grandstandRight) gsList.push(1);
         for (let gi = 0; gi < gsList.length; gi++) {
           const gs = gsList[gi];
           if (gs !== 0 && (p.x * gs) > 1.12) {
@@ -4458,18 +4496,27 @@
           bot.pitWant = false;
         }
 
-        // Colisão física dos bots com o guardrail das arquibancadas na PISTA TESTE
-        const _botTrackDef = TRACK_DEFINITIONS[this.trackIndex];
-        if (_botTrackDef && _botTrackDef.id === 'teste' && botSeg) {
+        // Colisão física dos bots com o guardrail das arquibancadas e mureta do Pit Lane em todas as pistas
+        if (botSeg) {
           if (botSeg.pitWall) {
             const gsPit = -(botSeg.pitSide || 1);
             if ((bot.x * gsPit) > 1.12) {
               bot.x = gsPit * 1.12;
               bot.speed *= 0.96;
             }
+            const botWallDist = botSeg.pitExit ? (2.26 - 1.10 * (botSeg.pitExitT1 || 0)) : 2.26;
+            const botWallLimit = Math.max(1.06, botWallDist - 0.10);
+            if ((bot.x * botPs) > botWallLimit) {
+              bot.x = botPs * botWallLimit;
+              bot.speed *= 0.96;
+            }
           }
-          if (botSeg.grandstandSide && (bot.x * botSeg.grandstandSide) > 1.12) {
-            bot.x = botSeg.grandstandSide * 1.12;
+          if (botSeg.grandstandLeft && bot.x < -1.12) {
+            bot.x = -1.12;
+            bot.speed *= 0.96;
+          }
+          if (botSeg.grandstandRight && bot.x > 1.12) {
+            bot.x = 1.12;
             bot.speed *= 0.96;
           }
         }

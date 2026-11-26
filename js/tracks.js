@@ -164,6 +164,40 @@ class TrackBuilder {
     const hasCustomMap = !!(trackDef.mapPoints && trackDef.mapPoints.length > 16);
     const lengthScale = 1.5;
 
+    // Seleciona deterministicamente +4 arquibancadas 3D além da fixa na contraface do Pit Lane (total 5 por pista)
+    const extraGrandstands = [];
+    if (trackDef && trackDef.id !== 'teste') {
+      let hash = 2166136261;
+      const idStr = String(trackDef.id || trackDef.name || 'track');
+      for (let hi = 0; hi < idStr.length; hi++) {
+        hash ^= idStr.charCodeAt(hi);
+        hash = Math.imul(hash, 16777619) >>> 0;
+      }
+      const candidates = [];
+      let cursorIdx = 0;
+      for (let s = 0; s < sections.length; s++) {
+        const sec = sections[s];
+        const segCount = Math.max(1, Math.round(sec.length * lengthScale));
+        if (s > 0 && !sec.tunnel && !sec.bridge && segCount >= 42) {
+          const margin = Math.max(6, Math.floor(segCount * 0.14));
+          const spanLen = Math.min(72, segCount - margin * 2);
+          if (spanLen >= 28) {
+            const side = (sec.curve < -0.3) ? 1 : (sec.curve > 0.3 ? -1 : (((hash + s) % 2 === 0) ? -1 : 1));
+            candidates.push({ start: cursorIdx + margin, end: cursorIdx + margin + spanLen, side });
+          }
+        }
+        cursorIdx += segCount;
+      }
+      for (let ci = candidates.length - 1; ci > 0; ci--) {
+        hash = (Math.imul(hash, 1664525) + 1013904223) >>> 0;
+        const j = hash % (ci + 1);
+        const tmp = candidates[ci]; candidates[ci] = candidates[j]; candidates[j] = tmp;
+      }
+      for (let k = 0; k < Math.min(4, candidates.length); k++) {
+        extraGrandstands.push(candidates[k]);
+      }
+    }
+
     for (let s = 0; s < sections.length; s++) {
       const sec = sections[s];
       const segCount = Math.max(1, Math.round(sec.length * lengthScale));
@@ -225,8 +259,7 @@ class TrackBuilder {
 
         // 1. Elementos da Reta de Largada / Boxes (Seção 0)
         if (sec.timingTower && (i === 24 || i === 64)) {
-          const towerOffset = (trackDef && trackDef.id === 'teste') ? (3.45 * pitSide) : (-1.35 * pitSide);
-          sceneries.push({ type: 'timing_tower', offset: towerOffset });
+          sceneries.push({ type: 'timing_tower', offset: 3.45 * pitSide });
         }
 
         // 2. Monumentos Principais e Secundários da Seção
@@ -295,47 +328,62 @@ class TrackBuilder {
         }
 
         const hasPitWall = !!(idx >= 18 && idx < 90 && !isTunnel && !isBridge);
-        let grandstandSide = 0;
-        let grandstandStart = false;
-        let grandstandEnd = false;
+        let grandstandLeft = null;
+        let grandstandRight = null;
         if (trackDef && trackDef.id === 'teste' && !isTunnel && !isBridge) {
-          // +1 arquibancada na esquerda (curva 3) e +2 na direita (curva 1 e reta oposta)
-          if (idx >= 225 && idx <= 295) {
-            grandstandSide = 1;
-            grandstandStart = (idx === 225);
-            grandstandEnd = (idx === 295);
+          // Arquibancadas longas nos dois lados na reta que antecede a largada/chegada (1060..1147 -> 0..13)
+          if (idx >= 1060 || idx <= 13) {
+            grandstandLeft = { start: (idx === 1060), end: (idx === 13) };
+            grandstandRight = { start: (idx === 1060), end: (idx === 13) };
+          } else if (idx >= 225 && idx <= 295) {
+            grandstandRight = { start: (idx === 225), end: (idx === 295) };
           } else if (idx >= 465 && idx <= 545) {
-            grandstandSide = -1;
-            grandstandStart = (idx === 465);
-            grandstandEnd = (idx === 545);
+            grandstandLeft = { start: (idx === 465), end: (idx === 545) };
           } else if (idx >= 605 && idx <= 685) {
-            grandstandSide = 1;
-            grandstandStart = (idx === 605);
-            grandstandEnd = (idx === 685);
+            grandstandRight = { start: (idx === 605), end: (idx === 685) };
+          }
+        } else if (!isTunnel && !isBridge) {
+          for (let eg = 0; eg < extraGrandstands.length; eg++) {
+            const g = extraGrandstands[eg];
+            if (idx >= g.start && idx <= g.end) {
+              if (g.side < 0) grandstandLeft = { start: (idx === g.start), end: (idx === g.end) };
+              else grandstandRight = { start: (idx === g.start), end: (idx === g.end) };
+            }
           }
         }
         const pitEntry = !!(hasPitWall && idx >= START_LINE_SEG && idx < START_LINE_SEG + 20);
-        const pitExitStart = 74;
+        const pitExitStart = 68;
         const pitExit = !!(hasPitWall && idx >= pitExitStart);
         const pitExitLen = 90 - pitExitStart;
         const pitExitT1 = pitExit ? Math.max(0, Math.min(1, (idx - pitExitStart) / pitExitLen)) : 0;
         const pitExitT2 = pitExit ? Math.max(0, Math.min(1, (idx + 1 - pitExitStart) / pitExitLen)) : 0;
         const pitBarrier = !!(hasPitWall && !pitEntry && !pitExit);
 
-        // No trecho do Pit Lane (e margem de ±4 segs) ou das arquibancadas da pista TESTE, afasta props para fora
+        // No trecho do Pit Lane (e margem de ±4 segs) ou das arquibancadas 3D, afasta props para fora e remove sprites antigos de arquibancada
         if (idx >= 14 && idx < 94 && sceneries.length > 0) {
-          for (let si = 0; si < sceneries.length; si++) {
+          for (let si = sceneries.length - 1; si >= 0; si--) {
+            if (sceneries[si].type === 'grandstand') {
+              sceneries.splice(si, 1);
+              continue;
+            }
             if (sceneries[si].offset * pitSide > 0) {
               sceneries[si].offset = pitSide * Math.max(2.75, Math.abs(sceneries[si].offset) + 0.95);
-            } else if (trackDef && trackDef.id === 'teste' && sceneries[si].offset * pitSide < 0) {
+            } else if (sceneries[si].offset * pitSide < 0) {
               sceneries[si].offset = -pitSide * Math.max(2.75, Math.abs(sceneries[si].offset) + 1.0);
             }
           }
         }
-        if (grandstandSide !== 0 && sceneries.length > 0) {
-          for (let si = 0; si < sceneries.length; si++) {
-            if (sceneries[si].offset * grandstandSide > 0) {
-              sceneries[si].offset = grandstandSide * Math.max(2.85, Math.abs(sceneries[si].offset) + 1.1);
+        if ((grandstandLeft || grandstandRight) && sceneries.length > 0) {
+          for (let si = sceneries.length - 1; si >= 0; si--) {
+            if (sceneries[si].type === 'grandstand') {
+              sceneries.splice(si, 1);
+              continue;
+            }
+            if (grandstandLeft && sceneries[si].offset < 0) {
+              sceneries[si].offset = -Math.max(2.85, Math.abs(sceneries[si].offset) + 1.1);
+            }
+            if (grandstandRight && sceneries[si].offset > 0) {
+              sceneries[si].offset = Math.max(2.85, Math.abs(sceneries[si].offset) + 1.1);
             }
           }
         }
@@ -353,9 +401,8 @@ class TrackBuilder {
           guardrailRight: (hasPitWall && pitSide === 1) ? false : guardRight,
           pitWall: hasPitWall,
           pitSide: pitSide,
-          grandstandSide: grandstandSide,
-          grandstandStart: grandstandStart,
-          grandstandEnd: grandstandEnd,
+          grandstandLeft: grandstandLeft,
+          grandstandRight: grandstandRight,
           pitEntry: pitEntry,
           pitExit: pitExit,
           pitExitT1: pitExitT1,
@@ -555,7 +602,9 @@ class TrackBuilder {
         const seg = segments[i];
         seg.curve = -seg.curve;
         if (seg.pitSide) seg.pitSide = -seg.pitSide;
-        if (seg.grandstandSide) seg.grandstandSide = -seg.grandstandSide;
+        const tmpGsLeft = seg.grandstandLeft;
+        seg.grandstandLeft = seg.grandstandRight;
+        seg.grandstandRight = tmpGsLeft;
         const tmpGuard = seg.guardrailLeft;
         seg.guardrailLeft = seg.guardrailRight;
         seg.guardrailRight = tmpGuard;
