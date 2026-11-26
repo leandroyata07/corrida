@@ -905,28 +905,28 @@
             ctx.fillText(needNitro ? `⛽ PIT LANE ABERTO (${dirLabel})` : `PIT ABERTO (${dirLabel}) • NITRO 3/3`, INTERNAL_WIDTH / 2, by + 9);
           }
 
-          // Seta direcional animada no lado correspondente indicando a entrada do Pit Lane (abaixo dos painéis laterais)
+          // Seta direcional animada compacta centralizada abaixo do banner de Pit Lane (sem sobrepor minimapa/intervalo)
           const arrowPulse = Math.sin(performance.now() / 110) * 3 * pitSide;
-          const ax = (pitSide > 0 ? (INTERNAL_WIDTH - 46) : 46) + arrowPulse;
-          const ay = Math.round(INTERNAL_HEIGHT * 0.56);
-          ctx.fillStyle = 'rgba(6, 16, 28, 0.82)';
-          ctx.fillRect(ax - 19, ay - 11, 38, 22);
+          const ax = Math.round(INTERNAL_WIDTH / 2 + pitSide * 26 + arrowPulse);
+          const ay = topY + 59;
+          ctx.fillStyle = 'rgba(6, 16, 28, 0.86)';
+          ctx.fillRect(ax - 16, ay - 7, 32, 14);
           ctx.strokeStyle = needNitro ? '#00FF88' : '#38BDF8';
-          ctx.lineWidth = 1.2;
-          ctx.strokeRect(ax - 19, ay - 11, 38, 22);
+          ctx.lineWidth = 1.0;
+          ctx.strokeRect(ax - 16, ay - 7, 32, 14);
           ctx.textAlign = 'center';
           ctx.fillStyle = needNitro ? (blinkPit > 0.45 ? '#00FF88' : '#A7F3D0') : '#38BDF8';
-          ctx.font = 'bold 6px monospace';
+          ctx.font = 'bold 5.5px monospace';
           ctx.fillText('PIT', ax + (pitSide > 0 ? -4 : 4), ay + 2);
           ctx.beginPath();
           if (pitSide > 0) {
-            ctx.moveTo(ax + 6, ay - 6);
-            ctx.lineTo(ax + 15, ay);
-            ctx.lineTo(ax + 6, ay + 6);
+            ctx.moveTo(ax + 5, ay - 4);
+            ctx.lineTo(ax + 12, ay);
+            ctx.lineTo(ax + 5, ay + 4);
           } else {
-            ctx.moveTo(ax - 6, ay - 6);
-            ctx.lineTo(ax - 15, ay);
-            ctx.lineTo(ax - 6, ay + 6);
+            ctx.moveTo(ax - 5, ay - 4);
+            ctx.lineTo(ax - 12, ay);
+            ctx.lineTo(ax - 5, ay + 4);
           }
           ctx.closePath();
           ctx.fill();

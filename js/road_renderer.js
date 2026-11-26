@@ -582,13 +582,13 @@
       const topY = p2.y;
       const tx1 = p1.x + p1.w * ps * 1.05;
       const tx2 = p2.x + p2.w * ps * 1.05;
-      const bh1 = Math.max(5.0, p1.w * 0.176);
-      const bh2 = Math.max(2.5, p2.w * 0.176);
+      const bh1 = Math.max(1.6, p1.w * 0.170);
+      const bh2 = Math.max(1.0, p2.w * 0.170);
 
       // Barras metálicas de guardrail ligando os cones/piquetes em sequência contínua
       if (p2.w > 3 && segBottomY > topY) {
-        const railT1 = Math.max(0.8, bh1 * 0.12);
-        const railT2 = Math.max(0.4, bh2 * 0.12);
+        const railT1 = Math.max(0.45, bh1 * 0.12);
+        const railT2 = Math.max(0.30, bh2 * 0.12);
         const r1Y_a = segBottomY - bh1 * 0.72, r2Y_a = topY - bh2 * 0.72;
         const r1Y_b = segBottomY - bh1 * 0.42, r2Y_b = topY - bh2 * 0.42;
         this.drawPoly(ctx, tx1, r1Y_a, tx1, r1Y_a - railT1, tx2, r2Y_a - railT2, tx2, r2Y_a, '#CBD5E1');
@@ -596,17 +596,18 @@
       }
 
       if (segment.index % 2 !== 0) return;
-      const bw = Math.max(2.3, p1.w * 0.061);
+      const bw = Math.max(0.7, p1.w * 0.058);
       const bh = bh1;
       const bx = tx1 - bw * 0.5;
       const by = segBottomY - bh;
       const isAlt = (Math.floor(segment.index / 2) % 2 === 0);
       const colA = isAlt ? '#FFE600' : '#EF1D1D';
       const colB = isAlt ? '#EF1D1D' : '#FFE600';
-      const pad = Math.max(0.65, bw * 0.13);
+
+      const pad = Math.max(0.22, bw * 0.13);
       const rx = bw * 0.5;
-      const ry = Math.max(0.9, bw * 0.22);
-      const rTop = Math.max(1.2, bw * 0.38);
+      const ry = Math.max(0.35, bw * 0.22);
+      const rTop = Math.max(0.45, bw * 0.38);
 
       // Sombra na base do cilindro
       ctx.fillStyle = 'rgba(0, 0, 0, 0.30)';
@@ -626,11 +627,11 @@
       ctx.closePath();
       ctx.fill();
 
-      // 6 faixas internas com sombreamento cilíndrico 3D
+      // 6 faixas internas proporcionais com sombreamento cilíndrico 3D
       const ix = bx + pad;
-      const iw = Math.max(1.2, bw - pad * 2);
+      const iw = Math.max(0.4, bw - pad * 2);
       const innerTop = by + pad;
-      const innerH = Math.max(2.6, bh - pad * 2 - ry * 0.4);
+      const innerH = Math.max(1.0, bh - pad * 2 - ry * 0.4);
       const bands = [
         { r: 0.13, col: colA, dome: true },
         { r: 0.24, col: colB },
@@ -639,8 +640,8 @@
         { r: 0.10, col: '#FFFFFF' },
         { r: 0.16, col: colB }
       ];
-      const gap = Math.max(0.45, pad * 0.80);
-      const usableH = Math.max(2.0, innerH - gap * (bands.length - 1));
+      const gap = Math.max(0.18, pad * 0.80);
+      const usableH = Math.max(0.8, innerH - gap * (bands.length - 1));
       let curY = innerTop;
       for (let bi = 0; bi < bands.length; bi++) {
         const bH = usableH * bands[bi].r;
@@ -1182,17 +1183,33 @@
         ctx.fillStyle = blink ? '#EF4444' : '#450A0A';
         ctx.fillRect(-tw * 0.4, ty - size * 0.16, tw * 0.8, size * 0.14);
 
-        // Linhas de classificação digital luminosa (LED verde/âmbar)
-        if (tw >= 5) {
+        // Linhas de classificação digital luminosa (LEDs à distância + Top 5 real de perto)
+        if (tw >= 5.5) {
           ctx.fillStyle = isNight ? '#FFEB3B' : '#FFD700';
           ctx.font = `bold ${Math.max(2.5, tw * 0.23).toFixed(1)}px monospace`;
           ctx.textAlign = 'center';
           ctx.fillText('LEADER', 0, ty + th * 0.16);
-          const topDrivers = ['1 HAM', '2 VER', '3 LEC', '4 NOR', '5 ALO'];
+          let topDrivers = ['1 HAM', '2 VER', '3 LEC', '4 NOR', '5 ALO'];
+          if (typeof this.getRankedCars === 'function' && this.cars && this.cars.length >= 5) {
+            const ranked = this.getRankedCars();
+            if (ranked && ranked.length >= 5) {
+              topDrivers = ranked.slice(0, 5).map((car, idx) => `${idx + 1} ${car.driverCode || 'DRV'}`);
+            }
+          }
           for (let d = 0; d < topDrivers.length; d++) {
             ctx.fillStyle = d === 0 ? (isNight ? '#34D399' : '#10B981') : (isNight ? '#FDE047' : '#FBBF24');
             ctx.font = `bold ${Math.max(2.2, tw * 0.20).toFixed(1)}px monospace`;
             ctx.fillText(topDrivers[d], 0, ty + th * (0.30 + d * 0.13));
+          }
+        } else if (tw >= 1.4) {
+          // Simulação visual de placar LED aceso quando visto de longe
+          const ledW = pw * 0.72;
+          const ledH = Math.max(0.7, ph * 0.065);
+          ctx.fillStyle = '#FFD700';
+          ctx.fillRect(-ledW * 0.38, ty + th * 0.13, ledW * 0.76, ledH);
+          for (let d = 0; d < 5; d++) {
+            ctx.fillStyle = d === 0 ? '#10B981' : '#FBBF24';
+            ctx.fillRect(-ledW * 0.5, ty + th * (0.27 + d * 0.13), ledW * (1 - d * 0.05), ledH);
           }
         }
       } else if (scenery.type === 'pit_wall') {

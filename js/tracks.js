@@ -257,9 +257,15 @@ class TrackBuilder {
         // --- SISTEMA RICO DE CENÁRIOS E PROPS LATERAIS DUPLOS ---
         const sceneries = [];
 
-        // 1. Elementos da Reta de Largada / Boxes (Seção 0)
-        if (sec.timingTower && (i === 24 || i === 64)) {
-          sceneries.push({ type: 'timing_tower', offset: 3.45 * pitSide });
+        // 1. Elementos da Reta de Largada / Boxes (Seção 0): totem rente à margem fora das arquibancadas/boxes
+        if (sec.timingTower) {
+          if (trackDef && trackDef.id === 'teste') {
+            if (i === 94 || i === 130) {
+              sceneries.push({ type: 'timing_tower', offset: 1.38 * pitSide });
+            }
+          } else if (i === 12 || i === 94) {
+            sceneries.push({ type: 'timing_tower', offset: (i === 12 ? -1.38 : 1.38) * pitSide });
+          }
         }
 
         // 2. Monumentos Principais e Secundários da Seção
