@@ -119,7 +119,7 @@
           this.renderOverheadBridge(ctx, segment, def);
         }
 
-        if (drawnSegs.has(segment.index) && segment.p1.screen.w > 6) {
+        if (drawnSegs.has(segment.index) && segment.p1.screen.w > 1.8) {
           const prevSeg = this.track.segments[(segment.index - 1 + totalSegs) % totalSegs];
           const prevNotDrawn = !!(drawnSegs && !drawnSegs.has(prevSeg.index) && segment.p1.screen.y < INTERNAL_HEIGHT + 24 && segment.p1.screen.y > segment.p2.screen.y + 0.5);
           const fasciaCol = (def && def.id === 'noite') ? '#0284C7' : ((def && def.id === 'brasil') ? '#009739' : ((def && def.id === 'sertao') ? '#EA580C' : '#DC2626'));
@@ -173,7 +173,7 @@
           }
         }
 
-        if (segment.pitWall && drawnSegs.has(segment.index) && segment.p1.screen.w > 6) {
+        if (segment.pitWall && drawnSegs.has(segment.index) && segment.p1.screen.w > 1.8) {
           this.renderPitBollards(ctx, segment);
         }
 
@@ -244,7 +244,7 @@
     renderTesteGrandstand(ctx, segment, isDark = false, nightIntensity = 0, gsOverride = null, isStart = false, isEnd = false, fasciaCol = '#DC2626') {
       const p1 = segment.p1.screen;
       const p2 = segment.p2.screen;
-      if (p1.w <= 6 || p2.y >= p1.y) return;
+      if (p1.w <= 1.8 || p2.y >= p1.y) return;
 
       const ps = segment.pitSide || 1;
       const gs = (gsOverride !== null) ? gsOverride : -ps;
@@ -281,7 +281,7 @@
       this.drawPoly(ctx, baseIn1, segBottomY - hRoof1 + fasciaH1, baseIn1, segBottomY - hRoof1, baseIn2, topY - hRoof2, baseIn2, topY - hRoof2 + fasciaH2, fasciaCol);
 
       // Torcida diversa (homens e mulheres, variações de pele branca, parda e negra)
-      if (p1.w > 9 && !isStart && !isEnd) {
+      if (p1.w > 5.5 && !isStart && !isEnd) {
         const shirtCols = ['#EF4444', '#FACC15', '#38BDF8', '#E2E8F0', '#22C55E', '#F97316', '#EC4899', '#A855F7'];
         const skinCols = ['#FDE2C4', '#FDBA74', '#C68642', '#9A5B25', '#6F4E37', '#4A2E1B'];
         const hairCols = ['#111827', '#291709', '#5C3317', '#92400E', '#D97706', '#7C2D12'];
@@ -290,8 +290,8 @@
           { off: 1.69, h: 0.34 },
           { off: 2.01, h: 0.48 }
         ];
-        const rBody = Math.max(1.2, p1.w * 0.018);
-        const rHead = Math.max(0.9, p1.w * 0.011);
+        const rBody = Math.max(0.65, p1.w * 0.018);
+        const rHead = Math.max(0.45, p1.w * 0.011);
         for (let t = 0; t < tiers.length; t++) {
           for (let sub = 0; sub < 2; sub++) {
             const seed = (segment.index * 17 + t * 7 + sub * 11);
@@ -341,8 +341,8 @@
       }
 
       // Pilares estruturais a cada 6 segmentos + Refletor de teto ligado à noite/tarde
-      if (segment.index % 6 === 0 && p1.w > 8) {
-        const colW = Math.max(1.5, p1.w * 0.032);
+      if (segment.index % 6 === 0 && p1.w > 2.5) {
+        const colW = Math.max(0.5, p1.w * 0.032);
         ctx.fillStyle = '#475569';
         ctx.fillRect(t3Out1 - colW * 0.5, segBottomY - hRoof1 * 1.04, colW, hRoof1 * 1.04 - hT3_1);
         ctx.fillRect(baseIn1 - colW * 0.4, segBottomY - hRoof1, colW * 0.8, hRoof1 - hBase1);
@@ -351,8 +351,8 @@
         const toTrack = -gs;
         const lampX = baseIn1;
         const lampY = segBottomY - hRoof1 - p1.w * 0.032;
-        const lampW = Math.max(2.5, p1.w * 0.055);
-        const lampH = Math.max(1.5, p1.w * 0.026);
+        const lampW = Math.max(0.8, p1.w * 0.055);
+        const lampH = Math.max(0.5, p1.w * 0.026);
         ctx.fillStyle = '#334155';
         ctx.beginPath();
         ctx.moveTo(lampX - lampW * 0.35, lampY);
@@ -382,15 +382,15 @@
       }
 
       // Guardrail contínuo na frente da arquibancada por toda a extensão
-      const gh1 = Math.max(2.5, p1.w * 0.09), gh2 = Math.max(1.2, p2.w * 0.09);
-      const rw1 = Math.max(1.2, p1.w * 0.028) * gs, rw2 = Math.max(0.6, p2.w * 0.028) * gs;
-      if (segment.index % 3 === 0) {
-        const postW = Math.max(1, p1.w * 0.018);
+      const gh1 = Math.max(0.5, p1.w * 0.09), gh2 = Math.max(0.4, p2.w * 0.09);
+      const rt1 = Math.max(0.35, p1.w * 0.018), rt2 = Math.max(0.25, p2.w * 0.018);
+      if (segment.index % 3 === 0 && p1.w > 12) {
+        const postW = Math.max(0.7, p1.w * 0.018);
         ctx.fillStyle = '#64748B';
         ctx.fillRect(rail1 - postW * 0.5, segBottomY - gh1 * 1.1, postW, gh1 * 1.1);
       }
-      this.drawPoly(ctx, rail1, segBottomY - gh1, rail1 + rw1, segBottomY - gh1, rail2 + rw2, topY - gh2, rail2, topY - gh2, '#CBD5E1');
-      this.drawPoly(ctx, rail1, segBottomY - gh1 * 0.52, rail1 + rw1, segBottomY - gh1 * 0.52, rail2 + rw2, topY - gh2 * 0.52, rail2, topY - gh2 * 0.52, '#94A3B8');
+      this.drawPoly(ctx, rail1, segBottomY - gh1, rail1, segBottomY - gh1 + rt1, rail2, topY - gh2 + rt2, rail2, topY - gh2, '#CBD5E1');
+      this.drawPoly(ctx, rail1, segBottomY - gh1 * 0.52, rail1, segBottomY - gh1 * 0.52 + rt1, rail2, topY - gh2 * 0.52 + rt2, rail2, topY - gh2 * 0.52, '#94A3B8');
 
       // Parede lateral de fechamento no início/fim da arquibancada
       if (isStart || isEnd) {
@@ -401,7 +401,7 @@
     renderTestePitGarages(ctx, segment, isDark = false, nightIntensity = 0) {
       const p1 = segment.p1.screen;
       const p2 = segment.p2.screen;
-      if (p1.w <= 6 || p2.y >= p1.y) return;
+      if (p1.w <= 1.8 || p2.y >= p1.y) return;
 
       const ps = segment.pitSide || 1;
       const segBottomY = p1.y;
@@ -438,33 +438,14 @@
         this.drawPoly(ctx, garIn1, segBottomY, garIn1, segBottomY - hGar1 * 0.14, garIn2, topY - hGar2 * 0.14, garIn2, topY, '#1E293B');
       }
 
-      // Divisória estrutural entre boxes ou equipamentos suaves internos
+      // Divisória estrutural entre boxes ou painel de telemetria e luz no vão central
       if (bayLocal === 0) {
         this.drawPoly(ctx, garIn1, segBottomY, garOut1, segBottomY, garOut1, segBottomY - hPad1, garIn1, segBottomY - hPad1, '#334155');
-      } else if (p1.w > 12) {
-        if (bayLocal === 1 || bayLocal === 4) {
-          // Pilha arredondada de pneus slick dentro do box
-          const tr = Math.max(1.5, p1.w * 0.032);
-          const tx = garIn1 + ps * p1.w * 0.06;
-          for (let st = 0; st < 3; st++) {
-            ctx.fillStyle = '#18181B';
-            ctx.beginPath();
-            ctx.arc(tx, segBottomY - tr * (0.9 + st * 1.45), tr, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = team.col;
-            ctx.lineWidth = Math.max(0.6, tr * 0.25);
-            ctx.stroke();
-          }
-        } else if (bayLocal === 2) {
-          // Painel de telemetria suave + luz interna do box
-          const monW = Math.max(2.5, p1.w * 0.10);
-          const monH = Math.max(2, hGar1 * 0.34);
-          const mx = garIn1 + ps * p1.w * 0.04 - (ps < 0 ? monW : 0);
-          ctx.fillStyle = '#0284C7';
-          ctx.fillRect(mx, segBottomY - hGar1 * 0.66, monW, monH);
-          ctx.fillStyle = '#E0F2FE';
-          ctx.fillRect(mx, segBottomY - hGar1 * 0.94, monW * 1.15, Math.max(1, hGar1 * 0.06));
-        }
+      } else if (bayLocal === 2 && p1.w > 8) {
+        // Painel de telemetria + luz interna no vão central do box
+        const monH1 = hGar1 * 0.34, monH2 = hGar2 * 0.34;
+        this.drawPoly(ctx, garIn1, segBottomY - hGar1 * 0.36, garIn1, segBottomY - hGar1 * 0.36 - monH1, garIn2, topY - hGar2 * 0.36 - monH2, garIn2, topY - hGar2 * 0.36, '#0284C7');
+        this.drawPoly(ctx, garIn1, segBottomY - hGar1 * 0.88, garIn1, segBottomY - hGar1 * 0.95, garIn2, topY - hGar2 * 0.95, garIn2, topY - hGar2 * 0.88, '#E0F2FE');
       }
 
       // Faixa contínua da equipe acima da porta do box + sigla

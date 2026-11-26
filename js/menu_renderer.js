@@ -57,9 +57,11 @@
       const btnBack = { x: boxX, y: btnY, w: btnW, h: btnH };
       const qualyBtn = showQualy ? { x: boxX + btnW + gapB, y: btnY, w: qualyW, h: btnH } : null;
       const startBtn = { x: boxX + (showQualy ? (btnW + gapB + qualyW + gapB) : (btnW + gapB)), y: btnY, w: startW, h: btnH };
+      const physW = touchSafe ? 96 : 104;
+      const physicsBtn = { x: boxX + boxW - physW, y: touchSafe ? 4 : 5, w: physW, h: touchSafe ? 12 : 13 };
 
       return {
-        touchSafe, boxX, boxW, timeBtns, weatherBtns, dynBtn, mirrorBtn: null,
+        touchSafe, boxX, boxW, timeBtns, weatherBtns, dynBtn, mirrorBtn: null, physicsBtn,
         k7Box, k7PrevBtn, k7NextBtn, btnBack, qualyBtn, startBtn,
         conds: [], songs: [],
         titleY: touchSafe ? 21 : 23,
@@ -1784,6 +1786,22 @@
       const mirrorTag = (this.gameMode !== 'CHAMPIONSHIP' && this.mirrorTrack) ? ' [ESPELHO]' : '';
       ctx.fillText(`CIRCUITO: ${def.name.toUpperCase()}${mirrorTag} (3 VOLTAS)`, INTERNAL_WIDTH / 2, L.subY);
 
+      if (L.physicsBtn) {
+        const pb = L.physicsBtn;
+        const isSim = (this.physicsMode === 'SIMULATOR');
+        const isChamp = (this.gameMode === 'CHAMPIONSHIP');
+        ctx.fillStyle = isSim ? 'rgba(245, 158, 11, 0.22)' : 'rgba(0, 229, 255, 0.16)';
+        ctx.fillRect(pb.x, pb.y, pb.w, pb.h);
+        ctx.strokeStyle = isSim ? '#F59E0B' : '#00E5FF';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(pb.x, pb.y, pb.w, pb.h);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = isSim ? '#FDE047' : '#67E8F9';
+        ctx.font = touchSafe ? 'bold 5.6px monospace' : 'bold 6.1px monospace';
+        const pLabel = isSim ? 'SIMULADOR' : 'ARCADE';
+        ctx.fillText(isChamp ? `🔒 ${pLabel}` : `⇄ ${pLabel}`, pb.x + pb.w / 2, pb.y + pb.h / 2 + 2.0);
+      }
+
       const envParts = this._getEnvParts(this.envCond);
       const isDyn = (this.envCond === 'DINAMICO');
 
@@ -2371,10 +2389,11 @@
           const infoX = cardX + badgeW + 8;
           const carModel = CAR_MODELS[data.selectedCarIndex] || { name: 'F1 CAR' };
           const modeLabel = data.difficulty === 'ADVANCED' ? 'AVANÇADO' : 'NORMAL';
+          const physLabel = data.physicsMode === 'SIMULATOR' ? 'SIM' : 'ARCADE';
 
           ctx.fillStyle = '#FFD700';
           ctx.font = 'bold 8px monospace';
-          ctx.fillText(`🏁 ${data.playerName}  [${carModel.name}]  (${modeLabel})`, infoX, cY + 9);
+          ctx.fillText(`🏁 ${data.playerName}  [${carModel.name}]  (${modeLabel} · ${physLabel})`, infoX, cY + 9);
 
           const nextTDef = TRACK_DEFINITIONS[data.nextTrackIndex] || { name: 'PRÓXIMA' };
           const totalStages = (data.seasonSchedule && data.seasonSchedule.length) ? data.seasonSchedule.length : TRACK_DEFINITIONS.length;
@@ -3226,19 +3245,23 @@
     getDifficultySelectLayout() {
       const touchSafe = this.input.touchControlsVisible;
       const cardW = touchSafe ? 152 : 166;
-      const cardH = touchSafe ? 122 : 138;
+      const cardH = touchSafe ? 96 : 106;
       const cardY = touchSafe ? 34 : 36;
       const gap = touchSafe ? 12 : 14;
       const totalW = cardW * 2 + gap;
       const startX = Math.round((INTERNAL_WIDTH - totalW) / 2);
       const card0 = { x: startX, y: cardY, w: cardW, h: cardH };
       const card1 = { x: startX + cardW + gap, y: cardY, w: cardW, h: cardH };
+      const physY = touchSafe ? 136 : 148;
+      const physH = touchSafe ? 24 : 26;
+      const phys0 = { x: startX, y: physY, w: cardW, h: physH };
+      const phys1 = { x: startX + cardW + gap, y: physY, w: cardW, h: physH };
       const btnW = touchSafe ? 86 : 98;
       const btnH = touchSafe ? 18 : 20;
-      const btnY = touchSafe ? 168 : 184;
+      const btnY = touchSafe ? 166 : 181;
       const btnBack = { x: startX, y: btnY, w: btnW, h: btnH };
       const btnConfirm = { x: startX + totalW - btnW, y: btnY, w: btnW, h: btnH };
-      return { touchSafe, cardW, cardH, cardY, card0, card1, btnBack, btnConfirm };
+      return { touchSafe, cardW, cardH, cardY, startX, totalW, card0, card1, physY, physH, phys0, phys1, btnBack, btnConfirm };
     }
 
     renderDifficultySelect(ctx) {
@@ -3319,31 +3342,67 @@
         }
 
         const badgeW = touchSafe ? 90 : 100;
-        const badgeH = touchSafe ? 11 : 12;
+        const badgeH = touchSafe ? 10 : 11;
         const badgeX = x + Math.round((w - badgeW) / 2);
-        const badgeY = y + 7;
+        const badgeY = y + 5;
         ctx.fillStyle = isSelected ? item.color : 'rgba(70, 90, 120, 0.5)';
         ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
         ctx.fillStyle = isSelected ? '#0A0F1A' : '#CFD8DC';
-        ctx.font = 'bold 6.2px monospace';
+        ctx.font = 'bold 6.0px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(item.badge, badgeX + badgeW / 2, badgeY + badgeH - 3);
+        ctx.fillText(item.badge, badgeX + badgeW / 2, badgeY + badgeH - 2.5);
 
-        ctx.font = touchSafe ? '22px monospace' : '26px monospace';
-        ctx.fillText(item.icon, x + w / 2, y + (touchSafe ? 40 : 46));
+        ctx.font = touchSafe ? '18px monospace' : '21px monospace';
+        ctx.fillText(item.icon, x + w / 2, y + (touchSafe ? 32 : 36));
 
-        ctx.font = touchSafe ? 'bold 8.2px monospace' : 'bold 9.2px monospace';
+        ctx.font = touchSafe ? 'bold 7.8px monospace' : 'bold 8.8px monospace';
         ctx.fillStyle = isSelected ? item.color : '#ECEFF1';
-        ctx.fillText(item.title, x + w / 2, y + (touchSafe ? 55 : 63));
+        ctx.fillText(item.title, x + w / 2, y + (touchSafe ? 46 : 51));
 
         ctx.textAlign = 'left';
-        ctx.font = touchSafe ? '6.2px monospace' : '7.0px monospace';
+        ctx.font = touchSafe ? '6.0px monospace' : '6.7px monospace';
         ctx.fillStyle = isSelected ? '#ECEFF1' : '#90A4AE';
-        const lineStartY = y + (touchSafe ? 70 : 80);
-        const lineSpacing = touchSafe ? 12 : 14;
+        const lineStartY = y + (touchSafe ? 59 : 65);
+        const lineSpacing = touchSafe ? 11 : 12.5;
         for (let li = 0; li < item.lines.length; li++) {
-          ctx.fillText(item.lines[li], x + 10, lineStartY + li * lineSpacing);
+          ctx.fillText(item.lines[li], x + 8, lineStartY + li * lineSpacing);
         }
+      }
+
+      // SELETOR DE ESTILO DE PILOTAGEM (ARCADE vs SIMULADOR)
+      const physOpts = [
+        {
+          id: 0,
+          title: '⚡ ESTILO ARCADE (PADRÃO)',
+          sub: 'RESPOSTA ÁGIL · FRENAGEM CURTA',
+          color: '#00E5FF',
+          box: L.phys0
+        },
+        {
+          id: 1,
+          title: '🏎 ESTILO SIMULADOR',
+          sub: 'ARRANCADA CADENCIADA · DISPUTA FIRME',
+          color: '#F59E0B',
+          box: L.phys1
+        }
+      ];
+      const curPhysIdx = (this.selectedPhysicsIndex === 1) ? 1 : 0;
+      for (let pIdx = 0; pIdx < physOpts.length; pIdx++) {
+        const po = physOpts[pIdx];
+        const isSel = (curPhysIdx === po.id);
+        const { x, y, w, h } = po.box;
+        ctx.fillStyle = isSel ? 'rgba(18, 30, 52, 0.96)' : 'rgba(10, 14, 24, 0.88)';
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = isSel ? po.color : 'rgba(70, 90, 120, 0.45)';
+        ctx.lineWidth = isSel ? 1.8 : 1;
+        ctx.strokeRect(x, y, w, h);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = isSel ? po.color : '#CFD8DC';
+        ctx.font = touchSafe ? 'bold 6.4px monospace' : 'bold 7.2px monospace';
+        ctx.fillText(po.title, x + w / 2, y + (touchSafe ? 10 : 11));
+        ctx.fillStyle = isSel ? '#E2E8F0' : '#64748B';
+        ctx.font = touchSafe ? '5.4px monospace' : '5.8px monospace';
+        ctx.fillText(po.sub, x + w / 2, y + (touchSafe ? 19 : 20));
       }
 
       // BOTÃO ◀ VOLTAR

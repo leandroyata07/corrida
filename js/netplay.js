@@ -151,6 +151,7 @@ class NetplayManager {
       guestReady: false,
       onlineMode: 'QUICK',
       diffMode: 'NORMAL',
+      physicsMode: 'ARCADE',
       seasonStage: 0,
       seasonSchedule: [],
       championshipPoints: null,
