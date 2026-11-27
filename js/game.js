@@ -4427,21 +4427,21 @@
           }
 
           // 2. CARRO À FRENTE NO MESMO TRILHO (distZ > 0):
-          if (distZ > 0 && distZ < 540 && latDiff < 0.50) {
+          if (distZ > 0 && distZ < 360 && latDiff < 0.38) {
             blocked = true;
-            const passDist = (bot.aiPersonality === 'AGGRESSIVE') ? 380 : 340;
-            const canCommitPass = (distZ < passDist && (bot.speed >= other.speed - 6 || (bot.slipstreamIntensity || 0) > 0.12));
+            const passDist = (bot.aiPersonality === 'AGGRESSIVE') ? 340 : 300;
+            const canCommitPass = (distZ < passDist && (bot.speed >= other.speed - 8 || (bot.slipstreamIntensity || 0) > 0.10));
             if (this.raceTimer > 2.8 && canCommitPass) {
               // Estilingue (Slingshot): abre lateralmente mais cedo e com folga para passar limpo sem bater na traseira
               const passDir = (other.x >= 0) ? -0.68 : 0.68;
               bot.targetX = Math.max(-0.84, Math.min(0.84, other.x + passDir));
               bot.slipstreamDecayTimer = 1.2;
             }
-            // Controle preventivo de aproximação (inclusive com Nitro) para não bater no para-choque traseiro
-            if (distZ < 150 && latDiff < 0.42) {
-              targetSpeed = Math.min(targetSpeed, other.speed * 0.96);
-              if (distZ < 85 && latDiff < 0.36 && bot.speed > other.speed) {
-                bot.speed = Math.max(other.speed * 0.94, bot.speed - 210 * dt);
+            // Controle preventivo de aproximação (só reduz quando está realmente perto sem espaço lateral)
+            if (distZ < 105 && latDiff < 0.36 && bot.speed > other.speed + 4) {
+              targetSpeed = Math.min(targetSpeed, other.speed * 0.97);
+              if (distZ < 72 && latDiff < 0.32) {
+                bot.speed = Math.max(other.speed * 0.95, bot.speed - 170 * dt);
               }
             }
           }
@@ -4738,12 +4738,13 @@
             const overlap = (0.365 - absDx);
             const dirX = (dx >= 0) ? 1 : -1;
             const botBounce = (this.raceTimer < 6.0 ? 0.08 : 0.14);
-            carA.x = Math.max(-1.95, Math.min(1.95, carA.x + dirX * overlap * 0.28));
-            carB.x = Math.max(-1.95, Math.min(1.95, carB.x - dirX * overlap * 0.28));
+            carA.x = Math.max(-1.95, Math.min(1.95, carA.x + dirX * overlap * 0.42));
+            carB.x = Math.max(-1.95, Math.min(1.95, carB.x - dirX * overlap * 0.42));
             carA.bumpVelX = dirX * botBounce;
             carB.bumpVelX = -dirX * botBounce;
-            carA.speed = Math.max(30, carA.speed * 0.985);
-            carB.speed = Math.max(30, carB.speed * 0.985);
+            const scrubFactor = Math.max(0.90, 1 - 0.18 * dt);
+            carA.speed = Math.max(30, carA.speed * scrubFactor);
+            carB.speed = Math.max(30, carB.speed * scrubFactor);
           }
         }
       }
