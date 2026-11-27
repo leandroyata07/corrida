@@ -118,8 +118,6 @@
       this.seasonBots = [];
       this.diffMode = 'NORMAL';
       this.selectedDiffIndex = 0;
-      this.physicsMode = 'ARCADE';
-      this.selectedPhysicsIndex = 0;
       this.lastLapAlertTimer = 0;
       this.isLastLapBanner = false;
       this.menuFadeAlpha = 0;
@@ -583,10 +581,6 @@
       this.seasonGridOrder = botIndices;
     }
 
-    isSimulatorMode() {
-      return this.physicsMode === 'SIMULATOR';
-    }
-
     saveCurrentChampionship() {
       if (this.gameMode !== 'CHAMPIONSHIP') return false;
       const slotNum = this.activeSaveSlot || 1;
@@ -612,7 +606,6 @@
         gameMode: this.gameMode,
         isCustomChampionship: !!this.customChampionship,
         difficulty: this.diffMode,
-        physicsMode: this.physicsMode || 'ARCADE',
         selectedCarIndex: this.selectedCarIndex,
         colorIndex: this.colorIndex,
         chosenEnvCond: this.chosenEnvCond || this.envCond || 'DIA',
@@ -639,8 +632,6 @@
       this.colorIndex = slotData.colorIndex !== undefined ? slotData.colorIndex : 1;
       this.gameMode = slotData.gameMode || 'CHAMPIONSHIP';
       this.diffMode = slotData.difficulty || 'NORMAL';
-      this.physicsMode = slotData.physicsMode || 'ARCADE';
-      this.selectedPhysicsIndex = (this.physicsMode === 'SIMULATOR') ? 1 : 0;
       this.seasonStage = slotData.seasonStage !== undefined ? slotData.seasonStage : 0;
       this.seasonSchedule = (slotData.seasonSchedule && slotData.seasonSchedule.length > 0)
         ? [...slotData.seasonSchedule]
@@ -1235,8 +1226,6 @@
       this.onlineChampMode = (oMode !== 'QUICK');
       this.gameMode = this.onlineChampMode ? 'CHAMPIONSHIP' : 'QUICK_RACE';
       this.diffMode = meta.diffMode || 'NORMAL';
-      this.physicsMode = meta.physicsMode || 'ARCADE';
-      this.selectedPhysicsIndex = (this.physicsMode === 'SIMULATOR') ? 1 : 0;
       this.mirrorTrack = false;
       this.isQualifying = false;
       this.qualifiedGridPos = 0;
@@ -2061,18 +2050,14 @@
           if (this.selectedModeIndex === 0) {
             this.gameMode = 'CHAMPIONSHIP';
             this.selectedDiffIndex = 0;
-            this.selectedPhysicsIndex = 0;
-            this.physicsMode = 'ARCADE';
             this.fadeTransition('DIFFICULTY_SELECT');
           } else if (this.selectedModeIndex === 1) {
             this.gameMode = 'QUICK_RACE';
             this.selectedDiffIndex = 0;
-            this.selectedPhysicsIndex = (this.physicsMode === 'SIMULATOR') ? 1 : 0;
             this.fadeTransition('DIFFICULTY_SELECT');
           } else {
             this.gameMode = 'TIME_TRIAL';
             this.selectedDiffIndex = 0;
-            this.selectedPhysicsIndex = (this.physicsMode === 'SIMULATOR') ? 1 : 0;
             this.fadeTransition('TRACK_SELECT');
           }
           this.input.clearPulses();
@@ -2123,41 +2108,20 @@
             this.audio.playBeep(440, 0.06);
           }
 
-          if (L.phys0 && click.x >= L.phys0.x && click.x <= L.phys0.x + L.phys0.w &&
-              click.y >= L.phys0.y && click.y <= L.phys0.y + L.phys0.h) {
-            this.selectedPhysicsIndex = 0;
-            this.physicsMode = 'ARCADE';
-            this.audio.playBeep(480, 0.06);
-          }
-
-          if (L.phys1 && click.x >= L.phys1.x && click.x <= L.phys1.x + L.phys1.w &&
-              click.y >= L.phys1.y && click.y <= L.phys1.y + L.phys1.h) {
-            this.selectedPhysicsIndex = 1;
-            this.physicsMode = 'SIMULATOR';
-            this.audio.playBeep(480, 0.06);
-          }
-
           if (click.x >= L.btnConfirm.x && click.x <= L.btnConfirm.x + L.btnConfirm.w &&
               click.y >= L.btnConfirm.y && click.y <= L.btnConfirm.y + L.btnConfirm.h) {
             this.input.justPressedEnter = true;
           }
         }
 
-        if (this.input.justPressedLeft || this.input.justPressedRight) {
+        if (this.input.justPressedLeft || this.input.justPressedRight || this.input.justPressedUp || this.input.justPressedDown) {
           this.selectedDiffIndex = this.selectedDiffIndex === 0 ? 1 : 0;
           this.audio.playBeep(440, 0.05);
-        }
-
-        if (this.input.justPressedUp || this.input.justPressedDown) {
-          this.selectedPhysicsIndex = this.selectedPhysicsIndex === 0 ? 1 : 0;
-          this.physicsMode = (this.selectedPhysicsIndex === 1) ? 'SIMULATOR' : 'ARCADE';
-          this.audio.playBeep(480, 0.05);
         }
 
         if (this.input.justPressedEnter) {
           this.audio.playBeep(523, 0.12);
           this.diffMode = (this.selectedDiffIndex === 0) ? 'NORMAL' : 'ADVANCED';
-          this.physicsMode = (this.selectedPhysicsIndex === 1) ? 'SIMULATOR' : 'ARCADE';
           if (this.gameMode === 'CHAMPIONSHIP') {
             this.slotSelectMode = 'NEW';
             this.selectedSlotIndex = 0;
@@ -2852,17 +2816,6 @@
               this.audio.playTitleMusic();
               this.input.clearPulses();
               return;
-            }
-          }
-
-          // Botão Estilo de Pilotagem (Arcade / Simulador) — editável apenas fora de Campeonatos
-          if (!clickedInteractive && L.physicsBtn && this.gameMode !== 'CHAMPIONSHIP') {
-            const pb = L.physicsBtn;
-            if (click.x >= pb.x && click.x <= pb.x + pb.w && click.y >= pb.y && click.y <= pb.y + pb.h) {
-              this.physicsMode = this.isSimulatorMode() ? 'ARCADE' : 'SIMULATOR';
-              this.selectedPhysicsIndex = this.isSimulatorMode() ? 1 : 0;
-              this.audio.playBeep(480, 0.07);
-              clickedInteractive = true;
             }
           }
 
@@ -3912,19 +3865,13 @@
 
       const isPowerBraking = isAccelerating && p.isBraking;
 
-      const isSimMode = this.isSimulatorMode();
       if (isPowerBraking) {
         // Power Braking estilo Top Gear (Acelerador + Freio simultâneos):
-        // No modo Simulador, retém menos velocidade livre para valorizar a freada antes da curva
-        const powerBrakeMul = isSimMode ? 1.52 : 1.0;
-        const powerBrakeRate = (6 + model.braking * 4.5) * powerBrakeMul * brakeInput * dt;
+        const powerBrakeRate = (6 + model.braking * 4.5) * brakeInput * dt;
         p.speed = Math.max(48, p.speed - powerBrakeRate);
       } else if (isAccelerating) {
-        // Cadência de arrancada esportiva (progressiva por marcha no Simulador, mantendo estilingue, nitro e velocidade final)
-        const gearNum = Number(p.currentGear) || 1;
-        const gearRatio = Math.min(1, Math.max(0, (gearNum - 1) / 4));
-        const simAccelMul = isSimMode ? (p.isNitro ? 0.58 : (0.46 - 0.08 * gearRatio)) : 1.0;
-        const basePower = (p.isNitro ? (65 + effectiveAccel * 55) : (24 + effectiveAccel * 26)) * simAccelMul;
+        // Cadência de arrancada esportiva (mantendo estilingue, nitro e velocidade final)
+        const basePower = p.isNitro ? (65 + effectiveAccel * 55) : (24 + effectiveAccel * 26);
         const rate = basePower * torqueFactor * throttleInput * dt;
         const suctionPull = (32 + model.acceleration * 38) * slipInt * dt;
         // Velocidade alvo correspondente à pressão no gatilho R2 (permite dosar velocidade de cruzeiro)
@@ -3941,13 +3888,10 @@
           p.speed = Math.max(targetPartialSpeed, p.speed - excessDecay);
         }
       } else if (p.isBraking) {
-        // Frenagem progressiva (mais longa/exigente no modo Simulador)
-        const simBrakeMul = isSimMode ? 0.68 : 1.0;
-        const brakeRate = (255 + model.braking * 175) * simBrakeMul * brakeInput * dt;
+        const brakeRate = (255 + model.braking * 175) * brakeInput * dt;
         p.speed = Math.max(p.speed - brakeRate, 0);
       } else {
-        const simDragMul = isSimMode ? 1.22 : 1.0;
-        const drag = (42 + speedRatio * 30) * simDragMul * dt;
+        const drag = (42 + speedRatio * 30) * dt;
         p.speed = Math.max(p.speed - drag, 0);
       }
 
@@ -3995,13 +3939,10 @@
       p.steer = steerInput;
 
       if (steerInput !== 0) {
-        const rampRate = isSimMode
-          ? ((steerInput * p.steerAngle < 0) ? 9.5 : 6.2)
-          : ((steerInput * p.steerAngle < 0) ? 13.5 : 8.8);
+        const rampRate = (steerInput * p.steerAngle < 0) ? 13.5 : 8.8;
         p.steerAngle += (steerInput - p.steerAngle) * Math.min(1, rampRate * dt);
       } else {
-        const returnRate = isSimMode ? 7.6 : 10.8;
-        p.steerAngle += (0 - p.steerAngle) * Math.min(1, returnRate * dt);
+        p.steerAngle += (0 - p.steerAngle) * Math.min(1, 10.8 * dt);
         if (Math.abs(p.steerAngle) < 0.01) p.steerAngle = 0;
       }
 
@@ -4017,15 +3958,12 @@
         const lowSpeedAuthority = Math.min(1, p.speed / 45);
         const highSpeedAuthority = 1.0 - Math.min(0.22, speedRatio * 0.18);
         // Resposta de esterçamento 100% natural e previsível, sem puxão abrupto no volante
-        const simSteerMul = isSimMode ? 0.84 : 1.0;
-        const steerPower = (2.15 * model.handling + 0.42) * lowSpeedAuthority * highSpeedAuthority * simSteerMul;
+        const steerPower = (2.15 * model.handling + 0.42) * lowSpeedAuthority * highSpeedAuthority;
         p.x += p.steerAngle * steerPower * dt;
 
-        // Leve perda de velocidade por atrito lateral em curvas fortes (mais presente no modo Simulador)
-        const scrubCurveThresh = isSimMode ? 0.90 : 1.4;
-        const scrubMul = isSimMode ? 1.50 : 1.0;
-        if (Math.abs(playerSeg.curve) > scrubCurveThresh && speedRatio > 0.68 && !isPowerBraking) {
-          const scrub = Math.abs(p.steerAngle) * (1.15 - model.grip * 0.65) * 22 * scrubMul * dt;
+        // Leve perda de velocidade por atrito lateral em curvas fortes
+        if (Math.abs(playerSeg.curve) > 1.4 && speedRatio > 0.68 && !isPowerBraking) {
+          const scrub = Math.abs(p.steerAngle) * (1.15 - model.grip * 0.65) * 22 * dt;
           p.speed = Math.max(40, p.speed - scrub);
         }
       }
@@ -4035,8 +3973,7 @@
         // Ao acionar acelerador + freio, segura o carro firme na tangente sem solavanco.
         // Quanto mais tempo mantiver o freio acionado, mais suavemente a centrífuga se estabiliza.
         const centrifugalSuppress = isPowerBraking ? (0.91 - 0.12 * powerBrakeProgress) : 1.0;
-        const simCentMul = isSimMode ? 1.28 : 1.0;
-        const centrifugal = ((playerSeg.curve * (speedRatio * speedRatio) * 0.40 * simCentMul) / model.centrifugalResistance) * centrifugalSuppress;
+        const centrifugal = ((playerSeg.curve * (speedRatio * speedRatio) * 0.40) / model.centrifugalResistance) * centrifugalSuppress;
         p.x -= centrifugal * dt;
 
         // Puxada suave e progressiva para o traçado interno da curva (calibrada +25% mais suave para máxima fluidez e naturalidade)
@@ -4049,7 +3986,7 @@
       }
       if (Math.abs(p.bumpVelX) > 0.003) {
         p.x += p.bumpVelX * dt;
-        p.bumpVelX *= Math.exp((isSimMode ? -4.2 : -6.5) * dt);
+        p.bumpVelX *= Math.exp(-6.5 * dt);
       } else {
         p.bumpVelX = 0;
       }
@@ -4584,7 +4521,6 @@
         }
 
         // Aplicação de aceleração e frenagem do Bot
-        const isSimMode = this.isSimulatorMode();
         if (blocked && bot.speed > targetSpeed + 8 && bot.bumpBoostTimer <= 0) {
           bot.speed = Math.max(bot.speed - 210 * dt, targetSpeed);
           bot.isBraking = true;
@@ -4596,9 +4532,7 @@
             const botTorque = Math.max(0.32, 1.28 - botAirDrag);
             const nitroAccel = bot.isNitro ? 1.75 : (bot.nitroDecayTimer > 0 ? (1.0 + 0.75 * (bot.nitroDecayTimer / 3.0)) : 1.0);
             const accelMul = nitroAccel + (1.10 * (bot.slipstreamIntensity || 0));
-            // Cadência de arrancada esportiva (mais cadenciada no modo Simulador)
-            const botSimMul = isSimMode ? (bot.isNitro ? 0.62 : (0.52 - 0.06 * Math.min(1, botSpeedRatio))) : 1.0;
-            const baseBotPower = (bot.isNitro ? (65 + bot.model.acceleration * 55) : (24 + bot.model.acceleration * 26)) * botSimMul;
+            const baseBotPower = bot.isNitro ? (65 + bot.model.acceleration * 55) : (24 + bot.model.acceleration * 26);
             const launchRate = baseBotPower * botTorque * accelMul * dt;
             const botSuctionPull = (32 + bot.model.acceleration * 38) * (bot.slipstreamIntensity || 0) * dt;
             bot.speed = Math.min(bot.speed + launchRate + botSuctionPull, targetSpeed);
@@ -4618,7 +4552,7 @@
         if (bot.bumpVelX) {
           if (Math.abs(bot.bumpVelX) > 0.003) {
             bot.x += bot.bumpVelX * dt;
-            bot.bumpVelX *= Math.exp((isSimMode ? -4.2 : -6.0) * dt);
+            bot.bumpVelX *= Math.exp(-6.0 * dt);
           } else {
             bot.bumpVelX = 0;
           }
@@ -4634,7 +4568,7 @@
         const isAggroBot = (bot.aiPersonality === 'AGGRESSIVE');
         const botLatRate = blocked ? (isAggroBot ? 1.85 : 1.55) : (isAggroBot ? 1.55 : 1.35);
         let latStep = (bot.targetX - bot.x) * botLatRate * dt;
-        const maxLatStep = (isSimMode ? (isAggroBot ? 0.68 : 0.60) : (isAggroBot ? 0.92 : 0.78)) * dt;
+        const maxLatStep = (isAggroBot ? 0.92 : 0.78) * dt;
         if (latStep > maxLatStep) latStep = maxLatStep;
         else if (latStep < -maxLatStep) latStep = -maxLatStep;
         bot.x += latStep;
@@ -4754,7 +4688,7 @@
           bot.x = Math.max(-1.95, Math.min(1.95, bot.x));
 
           // Impulso lateral suave estilo F1 para evitar tombamentos bruscos no toque
-          const colScale = this.isSimulatorMode() ? 0.16 : 0.22;
+          const colScale = 0.22;
           const impulseBase = (isGlancingCorner ? 0.38 : 0.58) * colScale;
           const impulseSlope = (isGlancingCorner ? 0.45 : 0.70) * colScale;
           p.bumpVelX = dirX * (impulseBase + overlap * impulseSlope);
@@ -4803,9 +4737,7 @@
           if (dz <= 46 && absDx < 0.365) {
             const overlap = (0.365 - absDx);
             const dirX = (dx >= 0) ? 1 : -1;
-            const botBounce = this.isSimulatorMode()
-              ? (this.raceTimer < 6.0 ? 0.06 : 0.10)
-              : (this.raceTimer < 6.0 ? 0.08 : 0.14);
+            const botBounce = (this.raceTimer < 6.0 ? 0.08 : 0.14);
             carA.x = Math.max(-1.95, Math.min(1.95, carA.x + dirX * overlap * 0.28));
             carB.x = Math.max(-1.95, Math.min(1.95, carB.x - dirX * overlap * 0.28));
             carA.bumpVelX = dirX * botBounce;

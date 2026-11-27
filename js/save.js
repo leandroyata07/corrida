@@ -37,7 +37,6 @@ const SaveManager = {
         gameMode: data.gameMode || 'CHAMPIONSHIP',
         isCustomChampionship: !!data.isCustomChampionship,
         difficulty: data.difficulty || 'NORMAL',
-        physicsMode: data.physicsMode || 'ARCADE',
         selectedCarIndex: data.selectedCarIndex !== undefined ? data.selectedCarIndex : 0,
         colorIndex: data.colorIndex !== undefined ? data.colorIndex : 1,
         chosenEnvCond: data.chosenEnvCond || 'DIA',
