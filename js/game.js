@@ -4277,6 +4277,7 @@
           for (let k = 0; k < this.cars.length; k++) {
             if (i === k) continue;
             const other = this.cars[k];
+            if (!!bot.inPitLane !== !!other.inPitLane) continue;
             const aheadDz = this.shortestDeltaZ(other.z, bot.z);
             if (aheadDz >= -30 && aheadDz <= 2600) {
               const distW = (aheadDz <= 700) ? 1.0 : Math.pow(1.0 - ((aheadDz - 700) / (2600 - 700)), 0.82);
@@ -4346,7 +4347,7 @@
           const shouldExitLaunch = isStraight && bot.speed < this.getEffectiveMaxSpeed(bot) * 0.88 && Math.random() < 0.12;
           // Caso 3: Disputa acirrada com o jogador (defendendo posição ou atacando para ultrapassar)
           const playerDz = this.shortestDeltaZ(this.player.z, bot.z);
-          const shouldFightPlayer = Math.abs(playerDz) < 320 && (isStraight || playerDz < 0) && Math.random() < 0.15;
+          const shouldFightPlayer = !this.player.inPitLane && Math.abs(playerDz) < 320 && (isStraight || playerDz < 0) && Math.random() < 0.15;
 
           if (shouldDraftPass || shouldExitLaunch || shouldFightPlayer) {
             bot.nitroCharges--;
@@ -4363,8 +4364,9 @@
           bot.targetX = (bot.gridStartX !== undefined) ? bot.gridStartX : bot.x;
         } else {
           const pers = bot.aiPersonality || 'TECHNICAL';
+          const playerOnSameLane = (!!bot.inPitLane === !!this.player.inPitLane);
           const pDistZ = this.shortestDeltaZ(this.player.z, bot.z);
-          const isPlayerAttacking = (pDistZ < 0 && pDistZ > -260 && this.player.speed > bot.speed - 12);
+          const isPlayerAttacking = (playerOnSameLane && pDistZ < 0 && pDistZ > -260 && this.player.speed > bot.speed - 12);
 
           if (isPlayerAttacking && Math.abs(botSeg.curve) < 1.5) {
             // Defesa ativa: fecha a linha de ultrapassagem do jogador com firmeza proporcional à personalidade
@@ -4375,7 +4377,7 @@
             // Técnico: tangência perfeita no apex e linha cirúrgica na curva
             const apexX = Math.max(-0.78, Math.min(0.78, -botSeg.curve * 0.34));
             bot.targetX += (apexX - bot.targetX) * 2.8 * dt;
-          } else if (pers === 'PRESSURE_PRONE' && Math.abs(pDistZ) < 160 && pDistZ < 0 && Math.abs(this.player.x - bot.x) < 0.42) {
+          } else if (pers === 'PRESSURE_PRONE' && playerOnSameLane && Math.abs(pDistZ) < 160 && pDistZ < 0 && Math.abs(this.player.x - bot.x) < 0.42) {
             // Propenso a pressão: oscila levemente sob pressão extrema, mas mantém ritmo forte
             bot.pressureTimer = Math.min(2.5, (bot.pressureTimer || 0) + dt * 1.3);
             if (bot.pressureTimer > 0.9) {
@@ -4408,6 +4410,7 @@
         for (let j = 0; j < this.cars.length; j++) {
           if (i === j) continue;
           const other = this.cars[j];
+          if (!!bot.inPitLane !== !!other.inPitLane) continue;
           const distZ = this.shortestDeltaZ(other.z, bot.z);
           const latDiff = Math.abs(other.x - bot.x);
 
@@ -4447,18 +4450,31 @@
           }
         }
 
-        // Bot usando o Pit Lane por estratégia (a partir da volta 2, decide 1x por volta se compensa parar ou ganhar posição na pista)
+        // Bot usando o Pit Lane por estratégia (decide pouco antes da entrada a partir da volta 2)
         const botPs = (botSeg && botSeg.pitSide) ? botSeg.pitSide : 1;
         const botCanPit = (bot.laps >= 1 && bot.pitUsedLap !== bot.laps);
-        if (botCanPit && botSeg && botSeg.pitWall) {
-          if (!bot.pitEntered && botSeg.pitEntry && bot.pitStrategyLap !== bot.laps) {
+        const approachingPitEntry = (botSeg && botSeg.index >= Math.max(0, START_LINE_SEG - 16) && botSeg.index < START_LINE_SEG + 12);
+        if (botCanPit && botSeg && (botSeg.pitWall || approachingPitEntry)) {
+          if (!bot.pitEntered && (botSeg.pitEntry || approachingPitEntry) && bot.pitStrategyLap !== bot.laps) {
             bot.pitStrategyLap = bot.laps;
             let pitChance = 0;
-            if (bot.nitroCharges === 0) pitChance = 0.65;
-            else if (bot.nitroCharges === 1) pitChance = 0.35;
+            if (bot.nitroCharges === 0) pitChance = 0.75;
+            else if (bot.nitroCharges === 1) pitChance = 0.45;
+            else if (bot.nitroCharges === 2) pitChance = 0.15;
             bot.pitWant = Math.random() < pitChance;
           }
-          if (bot.pitWant || bot.pitEntered) {
+          if (bot.pitWant && !bot.pitEntered) {
+            if (botSeg.pitEntry) {
+              bot.targetX = botPs * (1.55 + (((bot.id || 0) % 3) - 1) * 0.18);
+            } else if (approachingPitEntry) {
+              // Alinha na margem da entrada antes da mureta começar
+              bot.targetX = botPs * 0.92;
+            } else {
+              // Passou da janela de entrada sem conseguir cruzar
+              bot.pitWant = false;
+            }
+          }
+          if (bot.pitEntered || (bot.pitWant && botSeg.pitEntry)) {
             if (botSeg.pitExit && bot.pitEntered) {
               bot.targetX = botPs * 0.55;
               bot.pitWant = false;
@@ -4557,18 +4573,19 @@
             bot.bumpVelX = 0;
           }
         }
-        if (Math.abs(bot.x) > 1.0 && !bot.inPitLane && !bot.pitEntered) {
+        const botInPitFlow = !!(bot.inPitLane || bot.pitEntered || (bot.pitWant && botSeg && (botSeg.pitEntry || (botSeg.index >= Math.max(0, START_LINE_SEG - 16) && botSeg.index < START_LINE_SEG + 12))));
+        if (Math.abs(bot.x) > 1.0 && !botInPitFlow) {
           // Na grama, desacelera suavemente por atrito e busca retornar a pista
           bot.targetX = (bot.x > 0 ? 0.70 : -0.70);
           bot.speed = Math.max(40, bot.speed - 90 * dt);
-        } else {
+        } else if (!botInPitFlow) {
           bot.targetX = Math.max(-0.84, Math.min(0.84, bot.targetX));
         }
         const prevBotX = bot.x;
         const isAggroBot = (bot.aiPersonality === 'AGGRESSIVE');
-        const botLatRate = blocked ? (isAggroBot ? 1.85 : 1.55) : (isAggroBot ? 1.55 : 1.35);
+        const botLatRate = botInPitFlow ? 2.8 : (blocked ? (isAggroBot ? 1.85 : 1.55) : (isAggroBot ? 1.55 : 1.35));
         let latStep = (bot.targetX - bot.x) * botLatRate * dt;
-        const maxLatStep = (isAggroBot ? 0.92 : 0.78) * dt;
+        const maxLatStep = (botInPitFlow ? 2.4 : (isAggroBot ? 0.92 : 0.78)) * dt;
         if (latStep > maxLatStep) latStep = maxLatStep;
         else if (latStep < -maxLatStep) latStep = -maxLatStep;
         bot.x += latStep;
@@ -4623,8 +4640,8 @@
           }
         }
 
-        // Largura física de contato lateral calibrada (permite disputa de espaço justa e natural)
-        const COLLISION_WIDTH = 0.365;
+        // Largura física de contato lateral calibrada (permite disputa porta-a-porta bem próxima e natural)
+        const COLLISION_WIDTH = 0.325;
 
         // Ignora carros fora do alcance visual e físico (cobrindo comprimento total + esquinas)
         if (dz <= -105 || dz >= 95 || absDx >= COLLISION_WIDTH) continue;
@@ -4734,8 +4751,8 @@
           const dx = carA.x - carB.x;
           const absDx = Math.abs(dx);
 
-          if (dz <= 46 && absDx < 0.365) {
-            const overlap = (0.365 - absDx);
+          if (dz <= 46 && absDx < 0.325) {
+            const overlap = (0.325 - absDx);
             const dirX = (dx >= 0) ? 1 : -1;
             const botBounce = (this.raceTimer < 6.0 ? 0.08 : 0.14);
             carA.x = Math.max(-1.95, Math.min(1.95, carA.x + dirX * overlap * 0.42));
