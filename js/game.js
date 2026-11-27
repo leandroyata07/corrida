@@ -276,6 +276,30 @@
         };
         attachSafeTap(qualityBtn, toggleQuality);
       }
+
+      // Seletor de Arquibancadas (todas as pistas, exceto a pista Teste que sempre mantém)
+      this.grandstandsEnabled = true;
+      try {
+        const savedGrandstands = localStorage.getItem('lh44_grandstands');
+        if (savedGrandstands === '0') this.grandstandsEnabled = false;
+      } catch (_) {}
+      const grandstandsBtn = document.getElementById('grandstands-btn');
+      if (grandstandsBtn) {
+        const updateGrandstandsBtn = () => {
+          grandstandsBtn.textContent = this.grandstandsEnabled ? 'ARQUIBANCADAS: LIGADAS' : 'ARQUIBANCADAS: DESLIGADAS';
+          grandstandsBtn.style.color = this.grandstandsEnabled ? '#00E5FF' : '#FFD700';
+          grandstandsBtn.style.borderColor = this.grandstandsEnabled ? '#00B4D8' : '#F59E0B';
+        };
+        updateGrandstandsBtn();
+        const toggleGrandstands = (e) => {
+          if (e && e.stopPropagation) e.stopPropagation();
+          this.grandstandsEnabled = !this.grandstandsEnabled;
+          try { localStorage.setItem('lh44_grandstands', this.grandstandsEnabled ? '1' : '0'); } catch (_) {}
+          updateGrandstandsBtn();
+          grandstandsBtn.blur();
+        };
+        attachSafeTap(grandstandsBtn, toggleGrandstands);
+      }
       this.fixedStep = 1 / 60;
       this.accumulator = 0;
       this.initSeasonRoster();
@@ -579,6 +603,12 @@
         return a - b;
       });
       this.seasonGridOrder = botIndices;
+    }
+
+    areGrandstandsEnabled(def = null) {
+      const trackDef = def || (typeof TRACK_DEFINITIONS !== 'undefined' ? TRACK_DEFINITIONS[this.trackIndex] : null);
+      if (trackDef && trackDef.isTestTrack) return true;
+      return this.grandstandsEnabled !== false;
     }
 
     saveCurrentChampionship() {
@@ -3992,8 +4022,8 @@
       }
       p.x = Math.max(Math.min(p.x, 2.25), -2.25);
 
-      // Colisão física com o guardrail das arquibancadas em todas as pistas
-      if (playerSeg) {
+      // Colisão física com o guardrail das arquibancadas em todas as pistas (quando ativadas)
+      if (playerSeg && this.areGrandstandsEnabled()) {
         const aheadSeg = this.findSegment(p.z + SEGMENT_LENGTH);
         const gsList = [];
         if (playerSeg.pitWall) gsList.push(-(playerSeg.pitSide || 1));
@@ -4524,9 +4554,10 @@
 
         // Colisão física dos bots com o guardrail das arquibancadas e mureta do Pit Lane em todas as pistas
         if (botSeg) {
+          const showBotGs = this.areGrandstandsEnabled();
           if (botSeg.pitWall) {
             const gsPit = -(botSeg.pitSide || 1);
-            if ((bot.x * gsPit) > 1.12) {
+            if (showBotGs && (bot.x * gsPit) > 1.12) {
               bot.x = gsPit * 1.12;
               bot.speed *= 0.96;
             }
@@ -4537,11 +4568,11 @@
               bot.speed *= 0.96;
             }
           }
-          if (botSeg.grandstandLeft && bot.x < -1.12) {
+          if (showBotGs && botSeg.grandstandLeft && bot.x < -1.12) {
             bot.x = -1.12;
             bot.speed *= 0.96;
           }
-          if (botSeg.grandstandRight && bot.x > 1.12) {
+          if (showBotGs && botSeg.grandstandRight && bot.x > 1.12) {
             bot.x = 1.12;
             bot.speed *= 0.96;
           }

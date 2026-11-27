@@ -103,6 +103,7 @@
       const isNight = nightIntensity > 0.28;
       const isDusk = this.envCur ? ((this.envCur.s.dusk || 0) > 0.22) : false;
       const isDark = isNight || isDusk || inTunnel || (def && (def.theme === 'NOITE' || def.theme === 'TARDE'));
+      const showGrandstands = (typeof this.areGrandstandsEnabled === 'function') ? this.areGrandstandsEnabled(def) : true;
       for (let n = DRAW_DISTANCE - 1; n >= 0; n--) {
         const segment = this.track.segments[(baseSegment.index + n) % totalSegs];
         if (segment.p1.camera.z <= CAMERA_DEPTH) continue;
@@ -136,9 +137,11 @@
           };
           if (segment.pitWall) {
             const gs = -(segment.pitSide || 1);
-            this.renderTesteGrandstand(ctx, segment, isDark, nightIntensity, gs, segment.index === 18, segment.index === 89, fasciaCol);
-            if (prevNotDrawn && prevSeg.pitWall && segment.index !== 18) {
-              this.renderTesteGrandstand(ctx, makeNearSeg(segment), isDark, nightIntensity, gs, false, false, fasciaCol);
+            if (showGrandstands) {
+              this.renderTesteGrandstand(ctx, segment, isDark, nightIntensity, gs, segment.index === 18, segment.index === 89, fasciaCol);
+              if (prevNotDrawn && prevSeg.pitWall && segment.index !== 18) {
+                this.renderTesteGrandstand(ctx, makeNearSeg(segment), isDark, nightIntensity, gs, false, false, fasciaCol);
+              }
             }
             if (segment.index >= 18 && segment.index < 68) {
               this.renderTestePitGarages(ctx, segment, isDark, nightIntensity);
@@ -149,13 +152,13 @@
               this.renderPitWall(ctx, segment);
             }
           }
-          if (segment.grandstandLeft) {
+          if (showGrandstands && segment.grandstandLeft) {
             this.renderTesteGrandstand(ctx, segment, isDark, nightIntensity, -1, !!segment.grandstandLeft.start, !!segment.grandstandLeft.end, fasciaCol);
             if (prevNotDrawn && !segment.grandstandLeft.start && prevSeg.grandstandLeft) {
               this.renderTesteGrandstand(ctx, makeNearSeg(segment), isDark, nightIntensity, -1, false, false, fasciaCol);
             }
           }
-          if (segment.grandstandRight) {
+          if (showGrandstands && segment.grandstandRight) {
             this.renderTesteGrandstand(ctx, segment, isDark, nightIntensity, 1, !!segment.grandstandRight.start, !!segment.grandstandRight.end, fasciaCol);
             if (prevNotDrawn && !segment.grandstandRight.start && prevSeg.grandstandRight) {
               this.renderTesteGrandstand(ctx, makeNearSeg(segment), isDark, nightIntensity, 1, false, false, fasciaCol);
