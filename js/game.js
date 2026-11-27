@@ -4490,6 +4490,17 @@
               bot.pitTimer = (bot.pitTimer || 0) + dt;
               targetSpeed = Math.min(targetSpeed, 140);
               bot.speed = Math.min(bot.speed, 140);
+            } else if (bot.pitEntered && botSeg.pitExit) {
+              if ((bot.pitTimer || 0) >= 0.65) {
+                bot.nitroCharges = 3;
+                bot.pitUsedLap = bot.laps;
+                const botExitBoost = Math.round(this.getEffectiveMaxSpeed(bot) * 0.92);
+                bot.speed = Math.max(bot.speed, botExitBoost);
+              }
+              bot.inPitLane = false;
+              bot.pitEntered = false;
+              bot.pitWant = false;
+              bot.pitTimer = 0;
             }
             if (bot.pitEntered && !botSeg.pitExit && (bot.x * botPs) < 1.13) {
               bot.x = botPs * 1.13;
