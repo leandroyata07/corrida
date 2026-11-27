@@ -4450,9 +4450,9 @@
           }
         }
 
-        // Bot usando o Pit Lane por estratégia (decide pouco antes da entrada a partir da volta 2)
+        // Bot usando o Pit Lane por estratégia (decide pouco antes da entrada entre a volta 2 e a última volta, nunca após bandeirar)
         const botPs = (botSeg && botSeg.pitSide) ? botSeg.pitSide : 1;
-        const botCanPit = (bot.laps >= 1 && bot.pitUsedLap !== bot.laps);
+        const botCanPit = (!bot.finished && bot.laps >= 1 && bot.laps < TOTAL_LAPS && bot.pitUsedLap !== bot.laps);
         const approachingPitEntry = (botSeg && botSeg.index >= Math.max(0, START_LINE_SEG - 16) && botSeg.index < START_LINE_SEG + 12);
         if (botCanPit && botSeg && (botSeg.pitWall || approachingPitEntry)) {
           if (!bot.pitEntered && (botSeg.pitEntry || approachingPitEntry) && bot.pitStrategyLap !== bot.laps) {
