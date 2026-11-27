@@ -281,8 +281,7 @@
       this.drawPoly(ctx, baseIn1, segBottomY - hRoof1 + fasciaH1, baseIn1, segBottomY - hRoof1, baseIn2, topY - hRoof2, baseIn2, topY - hRoof2 + fasciaH2, fasciaCol);
 
       // Torcida diversa (homens e mulheres, variações de pele branca, parda e negra)
-      const crowdMinW = IS_MOBILE_CLIENT ? 8.5 : 5.5;
-      if (p1.w > crowdMinW && !isStart && !isEnd && (!IS_MOBILE_CLIENT || p1.w > 22 || segment.index % 2 === 0)) {
+      if (p1.w > 5.5 && !isStart && !isEnd) {
         const shirtCols = ['#EF4444', '#FACC15', '#38BDF8', '#E2E8F0', '#22C55E', '#F97316', '#EC4899', '#A855F7'];
         const skinCols = ['#FDE2C4', '#FDBA74', '#C68642', '#9A5B25', '#6F4E37', '#4A2E1B'];
         const hairCols = ['#111827', '#291709', '#5C3317', '#92400E', '#D97706', '#7C2D12'];
@@ -293,7 +292,6 @@
         ];
         const rBody = Math.max(0.65, p1.w * 0.018);
         const rHead = Math.max(0.45, p1.w * 0.011);
-        const fastMobileCrowd = (IS_MOBILE_CLIENT && p1.w <= 22);
         for (let t = 0; t < tiers.length; t++) {
           for (let sub = 0; sub < 2; sub++) {
             const seed = (segment.index * 17 + t * 7 + sub * 11);
@@ -301,13 +299,6 @@
             const cy = segBottomY - p1.w * (tiers[t].h + sub * 0.025);
             const shirt = shirtCols[seed % shirtCols.length];
             const skin = skinCols[(seed * 3 + t) % skinCols.length];
-            if (fastMobileCrowd) {
-              ctx.fillStyle = shirt;
-              ctx.fillRect(cx - rBody, cy - rBody * 1.45, rBody * 2, rBody * 1.45);
-              ctx.fillStyle = skin;
-              ctx.fillRect(cx - rHead, cy - rBody * 1.45 - rHead * 1.8, rHead * 2, rHead * 1.8);
-              continue;
-            }
             const hair = hairCols[(seed * 5 + sub) % hairCols.length];
             const isWoman = ((seed + t) % 2 === 1);
             // Ombros/tronco arredondados
@@ -333,7 +324,7 @@
             ctx.beginPath();
             ctx.arc(cx, cy - rBody * 1.55, rHead, 0, Math.PI * 2);
             ctx.fill();
-            if (p1.w > (IS_MOBILE_CLIENT ? 28 : 16)) {
+            if (p1.w > 16) {
               ctx.fillStyle = hair;
               ctx.beginPath();
               ctx.arc(cx, cy - rBody * 1.68, rHead * 0.98, Math.PI, 0);
@@ -376,14 +367,10 @@
         if (isDark && p1.w > 12) {
           const glowAlpha = Math.max(0.24, Math.min(0.52, 0.30 + nightIntensity * 0.22));
           const beamEndY = lampY + lampH + (segBottomY - lampY) * 0.48;
-          if (IS_MOBILE_CLIENT) {
-            ctx.fillStyle = `rgba(255, 249, 196, ${(glowAlpha * 0.48).toFixed(2)})`;
-          } else {
-            const coneGrad = ctx.createLinearGradient(lampX, lampY + lampH, lampX + toTrack * p1.w * 0.24, beamEndY);
-            coneGrad.addColorStop(0, `rgba(255, 249, 196, ${glowAlpha.toFixed(2)})`);
-            coneGrad.addColorStop(1, 'rgba(255, 238, 88, 0)');
-            ctx.fillStyle = coneGrad;
-          }
+          const coneGrad = ctx.createLinearGradient(lampX, lampY + lampH, lampX + toTrack * p1.w * 0.24, beamEndY);
+          coneGrad.addColorStop(0, `rgba(255, 249, 196, ${glowAlpha.toFixed(2)})`);
+          coneGrad.addColorStop(1, 'rgba(255, 238, 88, 0)');
+          ctx.fillStyle = coneGrad;
           ctx.beginPath();
           ctx.moveTo(lampX, lampY + lampH * 0.3);
           ctx.lineTo(lampX + toTrack * lampW * 0.45, lampY + lampH);
@@ -504,14 +491,10 @@
         if (isDark && p1.w > 12) {
           const glowAlpha = Math.max(0.24, Math.min(0.52, 0.30 + nightIntensity * 0.22));
           const beamEndY = lampY + lampH + (segBottomY - lampY) * 0.62;
-          if (IS_MOBILE_CLIENT) {
-            ctx.fillStyle = `rgba(255, 249, 196, ${(glowAlpha * 0.48).toFixed(2)})`;
-          } else {
-            const coneGrad = ctx.createLinearGradient(lampX, lampY + lampH, lampX + toTrack * p1.w * 0.22, beamEndY);
-            coneGrad.addColorStop(0, `rgba(255, 249, 196, ${glowAlpha.toFixed(2)})`);
-            coneGrad.addColorStop(1, 'rgba(255, 238, 88, 0)');
-            ctx.fillStyle = coneGrad;
-          }
+          const coneGrad = ctx.createLinearGradient(lampX, lampY + lampH, lampX + toTrack * p1.w * 0.22, beamEndY);
+          coneGrad.addColorStop(0, `rgba(255, 249, 196, ${glowAlpha.toFixed(2)})`);
+          coneGrad.addColorStop(1, 'rgba(255, 238, 88, 0)');
+          ctx.fillStyle = coneGrad;
           ctx.beginPath();
           ctx.moveTo(lampX, lampY + lampH * 0.3);
           ctx.lineTo(lampX + toTrack * lampW * 0.45, lampY + lampH);
@@ -607,27 +590,23 @@
       const ry = Math.max(0.35, bw * 0.22);
       const rTop = Math.max(0.45, bw * 0.38);
 
-      // Sombra e silhueta cilíndrica externa
-      if (IS_MOBILE_CLIENT && p1.w < 10) {
-        ctx.fillStyle = '#090D16';
-        ctx.fillRect(bx, by, bw, bh);
-      } else {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.30)';
-        ctx.beginPath();
-        ctx.ellipse(tx1, segBottomY, rx * 1.15, ry * 0.9, 0, 0, Math.PI * 2);
-        ctx.fill();
+      // Sombra na base do cilindro
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.30)';
+      ctx.beginPath();
+      ctx.ellipse(tx1, segBottomY, rx * 1.15, ry * 0.9, 0, 0, Math.PI * 2);
+      ctx.fill();
 
-        ctx.fillStyle = '#090D16';
-        ctx.beginPath();
-        ctx.ellipse(tx1, segBottomY - ry * 0.4, rx, ry, 0, 0, Math.PI);
-        ctx.lineTo(bx, by + rTop);
-        ctx.quadraticCurveTo(bx, by, bx + rTop, by);
-        ctx.lineTo(bx + bw - rTop, by);
-        ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + rTop);
-        ctx.lineTo(bx + bw, segBottomY - ry * 0.4);
-        ctx.closePath();
-        ctx.fill();
-      }
+      // Silhueta cilíndrica preta externa (base elíptica + topo arredondado)
+      ctx.fillStyle = '#090D16';
+      ctx.beginPath();
+      ctx.ellipse(tx1, segBottomY - ry * 0.4, rx, ry, 0, 0, Math.PI);
+      ctx.lineTo(bx, by + rTop);
+      ctx.quadraticCurveTo(bx, by, bx + rTop, by);
+      ctx.lineTo(bx + bw - rTop, by);
+      ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + rTop);
+      ctx.lineTo(bx + bw, segBottomY - ry * 0.4);
+      ctx.closePath();
+      ctx.fill();
 
       // 6 faixas internas proporcionais com sombreamento cilíndrico 3D
       const ix = bx + pad;
@@ -1448,14 +1427,8 @@
 
         if (isNight) {
           ctx.save();
-          if (IS_MOBILE_CLIENT) {
-            ctx.strokeStyle = 'rgba(255, 234, 0, 0.35)';
-            ctx.lineWidth = Math.max(1.2, size * 0.14);
-            ctx.strokeRect(ix - 0.4, iy - 0.4, iw + 0.8, ih + 0.8);
-          } else {
-            ctx.shadowColor = '#FFEA00';
-            ctx.shadowBlur = Math.max(1.5, size * 0.35);
-          }
+          ctx.shadowColor = '#FFEA00';
+          ctx.shadowBlur = Math.max(1.5, size * 0.35);
           ctx.fillStyle = '#FFD54F';
           ctx.fillRect(ix, iy, iw, ih);
 
